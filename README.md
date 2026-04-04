@@ -52,4 +52,3 @@ Aplikasaun ne'e tuir estrutura **Clean Architecture** báziku hodi separa respon
 
 ---
 
-Created with ❤️ by [Acacio](https://github.com/Akashio28)
