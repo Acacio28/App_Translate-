@@ -8,6 +8,10 @@
 ## 🌟 Funsaun Sira (Features)
 
 * **Tradusaun Testu:** Tradús testu husi lian ida ba lian seluk ho real-time.
+* ``tetun``
+* ``portugues``
+* ``Inglesh``
+* No lian sira seluk tan.
 * **Deteksaun Lian Automátiku:** Deteta lian ne'ebé hatama (input) ho automátiku.
 * **Istória Tradusaun:** Rai lista tradusaun sira ne'ebé foin halo ona hodi bele haree fali iha futuru.
 * **Testu-ba-Lian (Text-to-Speech):** Rona pronúnsia husi rezultadu tradusaun sira.
