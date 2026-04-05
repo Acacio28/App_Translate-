@@ -47,9 +47,7 @@ Aplikasaun ne'e tuir estrutura **Clean Architecture** báziku hodi separa respon
 
 ### Instalasaun
 1.  **Clone repozitóriu:**
-    ```bash
-    git clone [https://github.com/Akashio28/App_Translate-.git](https://github.com/Akashio28/App_Translate-.git)
-    ```
+    ```bash git clone https://github.com/Akashio28/App_Translate-.git ```
 2.  Loke projetu iha **Android Studio**.
 3.  Sincroniza projetu ho file **Gradle (Kotlin DSL)**.
 4.  Hala'o aplikasaun iha emulador ka dispozitivu fíziku hanesan telemovel reel.
