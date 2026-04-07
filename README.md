@@ -31,35 +31,23 @@
 
 ## 📐 Estrutura Projetu (Architecture)
 
-Aplikasaun ne'e tuir estrutura **Clean Architecture** báziku hodi separa responsabilidade:
+Aplikasaun ne'e tuir estrutura Clean Architecture báziku hodi separa responsabilidade:
 
-1.  **Data:** Implementasaun Repository, API Service (Retrofit), no Database (Room).
-3.  **UI (Presentation):** Jetpack Compose Screens, ViewModels, no State management.
-4.  com.example.app_translate/
-│
-├── data/
-│   ├── model/
-│   │   └── Language.kt              # Modelu ba dadus lian
-│   └── repository/
-│       └── TranslateRepository.kt   # Fatin ba dadus tradusaun
-│
-├── ui/
-│   ├── theme/                       # Tema aplikasaun
-│   │   ├── Color.kt                 # Warna sira
-│   │   ├── Theme.kt                 # Konfigurasaun tema
-│   │   └── Type.kt                  # Estilu letra (tipografia)
-│   ├── components/                  # Komponentu sira ne'ebé bele uza fali
-│   │   ├── LanguagePickerDialog.kt  # Diálogu hodi hili lian
-│   │   ├── InputSection.kt          # Parte ba hakerek testu
-│   │   └── OutputSection.kt         # Parte hatudu rezultadu tradusaun
-│   └── screen/
-│       └── TranslatorScreen.kt      # Tela prinsipal tradutor
-│
-├── viewmodel/
-│   └── TranslatorViewModel.kt       # Jestaun estado no lójika UI
-│
-└── MainActivity.kt                  # Ponto inísiu aplikasaun
-   ---
+1. **Data:** Implementasaun Repository, API Service (Retrofit), no Database (Room).
+2. **UI (Presentation):** Jetpack Compose Screens, ViewModels, no State management.
+
+### 📁 Estrutura Diretóriu
+## 📐 Estrutura Projetu (Architecture)
+
+Aplikasaun ne'e tuir estrutura Clean Architecture báziku hodi separa responsabilidade:
+
+1. **Data:** Implementasaun Repository, API Service (Retrofit), no Database (Room)
+2. **UI (Presentation):** Jetpack Compose Screens, ViewModels, no State management
+
+### 📁 Estrutura Diretóriu
+
+
+ ---
 
 ## 🚀 Hahú Prosesu (Getting Started)
 
