@@ -37,31 +37,31 @@ Aplikasaun ne'e tuir estrutura **Clean Architecture** báziku hodi separa respon
 3.  **UI (Presentation):** Jetpack Compose Screens, ViewModels, no State management.
 
 4.  com.example.app_translate/
+5.  com.example.app_translate/
 │
 ├── data/
 │   ├── model/
-│   │   └── Language.kt              
+│   │   └── Language.kt              # Modelu ba dadus lian
 │   └── repository/
-│       └── TranslateRepository.kt   
+│       └── TranslateRepository.kt   # Fatin ba dadus tradusaun
 │
 ├── ui/
-│   ├── theme/                       
-│   │   ├── Color.kt                 
-│   │   ├── Theme.kt
-│   │   └── Type.kt
-│   ├── components/
-│   │   ├── LanguagePickerDialog.kt  
-│   │   ├── InputSection.kt          
-│   │   └── OutputSection.kt       
+│   ├── theme/                       # Tema aplikasaun
+│   │   ├── Color.kt                 # Warna sira
+│   │   ├── Theme.kt                 # Konfigurasaun tema
+│   │   └── Type.kt                  # Estilu letra (tipografia)
+│   ├── components/                  # Komponentu sira ne'ebé bele uza fali
+│   │   ├── LanguagePickerDialog.kt  # Diálogu hodi hili lian
+│   │   ├── InputSection.kt          # Parte ba hakerek testu
+│   │   └── OutputSection.kt         # Parte hatudu rezultadu tradusaun
 │   └── screen/
-│       └── TranslatorScreen.kt     
+│       └── TranslatorScreen.kt      # Tela prinsipal tradutor
 │
 ├── viewmodel/
-│   └── TranslatorViewModel.kt      
+│   └── TranslatorViewModel.kt       # Jestaun estado no lójika UI
 │
-└── MainActivity.kt                 
-
----
+└── MainActivity.kt                  # Ponto inísiu aplikasaun
+6.   ---
 
 ## 🚀 Hahú Prosesu (Getting Started)
 
