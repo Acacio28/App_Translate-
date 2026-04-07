@@ -37,15 +37,6 @@ Aplikasaun ne'e tuir estrutura Clean Architecture báziku hodi separa responsabi
 2. **UI (Presentation):** Jetpack Compose Screens, ViewModels, no State management.
 
 ### 📁 Estrutura Diretóriu
-## 📐 Estrutura Projetu (Architecture)
-
-Aplikasaun ne'e tuir estrutura Clean Architecture báziku hodi separa responsabilidade:
-
-1. **Data:** Implementasaun Repository, API Service (Retrofit), no Database (Room)
-2. **UI (Presentation):** Jetpack Compose Screens, ViewModels, no State management
-
-### 📁 Estrutura Diretóriu
-
 
  ---
 
