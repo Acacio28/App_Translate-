@@ -36,6 +36,31 @@ Aplikasaun ne'e tuir estrutura **Clean Architecture** báziku hodi separa respon
 1.  **Data:** Implementasaun Repository, API Service (Retrofit), no Database (Room).
 3.  **UI (Presentation):** Jetpack Compose Screens, ViewModels, no State management.
 
+4.  com.example.app_translate/
+│
+├── data/
+│   ├── model/
+│   │   └── Language.kt              
+│   └── repository/
+│       └── TranslateRepository.kt   
+│
+├── ui/
+│   ├── theme/                       
+│   │   ├── Color.kt                 
+│   │   ├── Theme.kt
+│   │   └── Type.kt
+│   ├── components/
+│   │   ├── LanguagePickerDialog.kt  
+│   │   ├── InputSection.kt          
+│   │   └── OutputSection.kt       
+│   └── screen/
+│       └── TranslatorScreen.kt     
+│
+├── viewmodel/
+│   └── TranslatorViewModel.kt      
+│
+└── MainActivity.kt                 
+
 ---
 
 ## 🚀 Hahú Prosesu (Getting Started)
