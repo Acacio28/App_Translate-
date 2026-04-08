@@ -14,10 +14,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -33,6 +38,7 @@ import com.example.app_translate.ui.theme.*
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TranslatorScreen(
     tts: TextToSpeech?,
@@ -45,7 +51,6 @@ fun TranslatorScreen(
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
 
-    // Voice input launcher
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -57,6 +62,7 @@ fun TranslatorScreen(
         }
     }
 
+    // Fungsi bantuan (Speak, Copy, Share, Voice)
     fun speakText(text: String, langCode: String) {
         if (!ttsReady() || text.isBlank()) return
         val locale = when (langCode) {
@@ -108,7 +114,10 @@ fun TranslatorScreen(
         LanguagePickerDialog(
             title = "Pilih Bahasa Sumber",
             currentLang = uiState.sourceLang,
-            onLanguageSelected = viewModel::onSourceLangChanged,
+            onLanguageSelected = {
+                viewModel.onSourceLangChanged(it)
+                showSourcePicker = false
+            },
             onDismiss = { showSourcePicker = false }
         )
     }
@@ -117,87 +126,130 @@ fun TranslatorScreen(
         LanguagePickerDialog(
             title = "Pilih Bahasa Tujuan",
             currentLang = uiState.targetLang,
-            onLanguageSelected = viewModel::onTargetLangChanged,
+            onLanguageSelected = {
+                viewModel.onTargetLangChanged(it)
+                showTargetPicker = false
+            },
             onDismiss = { showTargetPicker = false }
         )
     }
 
-    // Main UI
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(WhiteColor)
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Text(
-            text = "Translator App",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = PurpleColor,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        // Language selector row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = { showSourcePicker = true },
-                colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
-                shape = RoundedCornerShape(12.dp)
+    Scaffold(
+        bottomBar = {
+            NavigationBar(
+                containerColor = WhiteColor,
+                tonalElevation = 8.dp
             ) {
-                Text(text = uiState.sourceLang.name, color = PurpleColor)
-            }
-
-            Button(
-                onClick = viewModel::onSwapLanguages,
-                colors = ButtonDefaults.buttonColors(containerColor = DarkPurpleColor),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(text = "⇄", fontSize = 20.sp, color = PurpleColor)
-            }
-
-            Button(
-                onClick = { showTargetPicker = true },
-                colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(text = uiState.targetLang.name, color = PurpleColor)
+                NavigationBarItem(
+                    selected = true,
+                    onClick = { /* Navigasi */ },
+                    icon = { Icon(Icons.Default.Translate, contentDescription = null) },
+                    label = { Text("Translate") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = PurpleColor,
+                        selectedTextColor = PurpleColor,
+                        indicatorColor = LightPurpleColor
+                    )
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = { /* Navigasi */ },
+                    icon = { Icon(Icons.Default.History, contentDescription = null) },
+                    label = { Text("History") }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = { /* Navigasi */ },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    label = { Text("Settings") }
+                )
             }
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        InputSection(
-            inputText = uiState.inputText,
-            onInputChanged = viewModel::onInputChanged,
-            onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
-            onCopy = { copyText(uiState.inputText) }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutputSection(
-            outputText = uiState.outputText,
-            isLoading = uiState.isLoading,
-            isError = uiState.isError,
-            onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
-            onCopy = { copyText(uiState.outputText) },
-            onShare = { shareText(uiState.outputText) }
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Button(
-            onClick = { startVoice() },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = PurpleColor),
-            shape = RoundedCornerShape(12.dp)
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(WhiteColor)
+                .padding(innerPadding)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
         ) {
-            Text(text = "🎤 Voice Input", fontSize = 16.sp, color = WhiteColor)
+            Text(
+                text = "Translator App",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = PurpleColor,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = { showSourcePicker = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(text = uiState.sourceLang.name, color = PurpleColor)
+                }
+
+                // Tombol Swap menggunakan Icon yang benar
+                IconButton(
+                    onClick = { viewModel.onSwapLanguages() },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(DarkPurpleColor, RoundedCornerShape(12.dp))
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.CompareArrows,
+                        contentDescription = "Swap",
+                        tint = WhiteColor
+                    )
+                }
+
+                Button(
+                    onClick = { showTargetPicker = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(text = uiState.targetLang.name, color = PurpleColor)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            InputSection(
+                inputText = uiState.inputText,
+                onInputChanged = { viewModel.onInputChanged(it) },
+                onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
+                onCopy = { copyText(uiState.inputText) }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            OutputSection(
+                outputText = uiState.outputText,
+                isLoading = uiState.isLoading,
+                isError = uiState.isError,
+                onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
+                onCopy = { copyText(uiState.outputText) },
+                onShare = { shareText(uiState.outputText) }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Button(
+                onClick = { startVoice() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PurpleColor),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(text = "🎤 Voice Input", fontSize = 16.sp, color = WhiteColor)
+            }
         }
     }
 }
