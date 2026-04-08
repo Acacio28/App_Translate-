@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.app_translate.data.model.Language
 import com.example.app_translate.data.model.languages
 import com.example.app_translate.data.repository.TranslateRepository
+import com.google.mlkit.nl.languageid.LanguageIdentification // Import baru
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,9 @@ class TranslatorViewModel(
     val uiState: StateFlow<TranslatorUiState> = _uiState.asStateFlow()
 
     private var translateJob: Job? = null
+
+    // Inisialisasi pendeteksi bahasa dari Google ML Kit
+    private val languageIdentifier = LanguageIdentification.getClient()
 
     fun onInputChanged(text: String) {
         _uiState.update { it.copy(inputText = text) }
@@ -58,14 +62,47 @@ class TranslatorViewModel(
 
     private fun triggerTranslate() {
         val state = _uiState.value
+
+        // Jika input kosong, bersihkan output
         if (state.inputText.isBlank()) {
             _uiState.update { it.copy(outputText = "", isLoading = false, isError = false) }
             return
         }
+
         translateJob?.cancel()
         translateJob = viewModelScope.launch {
-            delay(500)
+            delay(600) // Tunggu user selesai mengetik sebentar
+
             _uiState.update { it.copy(isLoading = true, isError = false) }
+
+            // LOGIKA BARU: Deteksi bahasa sebelum kirim ke Repository
+            languageIdentifier.identifyLanguage(state.inputText)
+                .addOnSuccessListener { detectedLanguageCode ->
+                    val selectedSourceCode = state.sourceLang.code
+
+                    // Jika bahasa terdeteksi (bukan "und") dan TIDAK COCOK dengan pilihan user
+                    if (detectedLanguageCode != "und" && detectedLanguageCode != selectedSourceCode) {
+                        _uiState.update {
+                            it.copy(
+                                outputText = "Bahasa tidak sesuai! Anda memilih '${state.sourceLang.name}', tapi teks terdeteksi sebagai '$detectedLanguageCode'.",
+                                isLoading = false,
+                                isError = true
+                            )
+                        }
+                    } else {
+                        // Jika bahasa COCOK, lanjutkan terjemahan
+                        performTranslation(state)
+                    }
+                }
+                .addOnFailureListener {
+                    // Jika deteksi gagal, tetap coba terjemahkan saja
+                    performTranslation(state)
+                }
+        }
+    }
+
+    private fun performTranslation(state: TranslatorUiState) {
+        viewModelScope.launch {
             val result = repository.translate(state.inputText, state.sourceLang.code, state.targetLang.code)
             result.fold(
                 onSuccess = { translated ->
