@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.app_translate.data.model.Language
 import com.example.app_translate.data.model.languages
 import com.example.app_translate.data.repository.TranslateRepository
-import com.google.mlkit.nl.languageid.LanguageIdentification // Import baru
+import com.google.mlkit.nl.languageid.LanguageIdentification
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +32,7 @@ class TranslatorViewModel(
 
     private var translateJob: Job? = null
 
-    // Inisialisasi pendeteksi bahasa dari Google ML Kit
+    // Inisialisasi Google ML Kit Language ID
     private val languageIdentifier = LanguageIdentification.getClient()
 
     fun onInputChanged(text: String) {
@@ -63,7 +63,6 @@ class TranslatorViewModel(
     private fun triggerTranslate() {
         val state = _uiState.value
 
-        // Jika input kosong, bersihkan output
         if (state.inputText.isBlank()) {
             _uiState.update { it.copy(outputText = "", isLoading = false, isError = false) }
             return
@@ -71,31 +70,32 @@ class TranslatorViewModel(
 
         translateJob?.cancel()
         translateJob = viewModelScope.launch {
-            delay(600) // Tunggu user selesai mengetik sebentar
+            delay(600) // Tunggu user selesai mengetik
 
             _uiState.update { it.copy(isLoading = true, isError = false) }
 
-            // LOGIKA BARU: Deteksi bahasa sebelum kirim ke Repository
+            // Deteksi bahasa teks yang diinput
             languageIdentifier.identifyLanguage(state.inputText)
                 .addOnSuccessListener { detectedLanguageCode ->
                     val selectedSourceCode = state.sourceLang.code
 
-                    // Jika bahasa terdeteksi (bukan "und") dan TIDAK COCOK dengan pilihan user
+                    // LOGIKA UTAMA:
+                    // Jika bahasa yang diketik (detected) BUKAN bahasa asal yang dipilih (source)
+                    // Dan bahasa tersebut terdeteksi (bukan "und")
                     if (detectedLanguageCode != "und" && detectedLanguageCode != selectedSourceCode) {
                         _uiState.update {
                             it.copy(
-                                outputText = "Bahasa tidak sesuai! Anda memilih '${state.sourceLang.name}', tapi teks terdeteksi sebagai '$detectedLanguageCode'.",
+                                outputText = state.inputText, // Langsung copy teks asli ke output
                                 isLoading = false,
-                                isError = true
+                                isError = false
                             )
                         }
                     } else {
-                        // Jika bahasa COCOK, lanjutkan terjemahan
+                        // Jika bahasa sesuai, lakukan proses terjemahan normal
                         performTranslation(state)
                     }
                 }
                 .addOnFailureListener {
-                    // Jika deteksi gagal, tetap coba terjemahkan saja
                     performTranslation(state)
                 }
         }
@@ -111,7 +111,7 @@ class TranslatorViewModel(
                 onFailure = {
                     _uiState.update {
                         it.copy(
-                            outputText = "Gagal menerjemahkan. Cek koneksi internet.",
+                            outputText = "Gagal menerjemahkan. Cek koneksi.",
                             isLoading = false,
                             isError = true
                         )
