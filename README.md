@@ -1,6 +1,8 @@
 # App_Translate-
 # TranslaTecho - Aplikasaun Tradusaun Modernu
 
+![Translator App](swappy-20260408-222656.png)
+
 **TranslaTecho** mak aplikasaun Android ida ne'ebé dezenvolve ho lian **Kotlin** hodi ajuda uza-na'in sira tradús testu ka fraze entre lian ne'ebe ami tau ona iha kraik ho lalais no efisiente. Aplikasaun ne'e harii ho prátika dezenvolvimentu Android modernu hodi garante dezempeñu ne'ebé di'ak no interface ne'ebé moos.
 
 ---
