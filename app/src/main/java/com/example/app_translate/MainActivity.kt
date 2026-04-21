@@ -6,12 +6,10 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
+import com.example.app_translate.ui.theme.App_TranslateTheme
+import java.util.Locale
 
-// IMPORT PENTING: Pastikan baris ini ada agar TranslatorScreen dikenali
+
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
@@ -20,37 +18,31 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Mengaktifkan tampilan layar penuh
-        enableEdgeToEdge()
-
-        // 2. Inisialisasi Text To Speech
+        // Inisialisasi TTS sebelum setContent
         tts = TextToSpeech(this, this)
 
+        enableEdgeToEdge()
+
         setContent {
-            // 3. Menggunakan MaterialTheme standar agar tidak error Theme
-            MaterialTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    // Memanggil layar utama aplikasi
-                    TranslatorScreen(
-                        tts = tts,
-                        ttsReady = { ttsReady }
-                    )
-                }
+            App_TranslateTheme {
+                TranslatorScreen(
+                    tts = tts,
+                    ttsReady = { ttsReady }
+                )
             }
         }
     }
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
+            // Set bahasa default agar tidak error saat pertama kali digunakan
+            tts?.language = Locale.US
             ttsReady = true
         }
     }
 
     override fun onDestroy() {
-        // Bersihkan resource agar tidak memory leak
+        // Penting untuk mencegah memory leak yang bisa bikin crash saat app ditutup
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()

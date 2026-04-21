@@ -1,11 +1,14 @@
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,30 +18,31 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
-import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,22 +50,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app_translate.ui.components.InputSection
 import com.example.app_translate.ui.components.LanguagePickerDialog
 import com.example.app_translate.ui.components.OutputSection
-import com.example.app_translate.ui.theme.DarkPurpleColor
 import com.example.app_translate.ui.theme.LightPurpleColor
 import com.example.app_translate.ui.theme.PurpleColor
-import com.example.app_translate.viewmodel.TranslatorUiState
+import com.example.app_translate.ui.theme.WhiteColor
 import com.example.app_translate.viewmodel.TranslatorViewModel
-
-enum class ScreenTab { Translate, Dialogue, Camera, History }
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,8 +73,8 @@ fun TranslatorScreen(
     ttsReady: () -> Boolean,
     viewModel: TranslatorViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var currentTab by remember { mutableStateOf(ScreenTab.Translate) }
 
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
@@ -79,231 +82,270 @@ fun TranslatorScreen(
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val spoken =
-            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (spoken != null) viewModel.onInputChanged(spoken)
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+        if (spoken != null) {
+            viewModel.onInputChanged(spoken)
+        }
     }
 
+    // --- Helper Functions ---
+    fun speakText(text: String, langCode: String) {
+        if (!ttsReady() || text.isBlank()) return
+        val locale = when (langCode) {
+            "en" -> Locale.US
+            "id" -> Locale("in", "ID")
+            "es" -> Locale("es", "ES")
+            "fr" -> Locale.FRANCE
+            "ja" -> Locale.JAPAN
+            "de" -> Locale.GERMANY
+            "ar" -> Locale("ar", "SA")
+            "zh" -> Locale.CHINA
+            else -> Locale.US
+        }
+        tts?.language = locale
+        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+
+    fun copyText(text: String) {
+        if (text.isBlank()) return
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("text", text))
+        Toast.makeText(context, "Teks disalin!", Toast.LENGTH_SHORT).show()
+    }
+
+    fun shareText(text: String) {
+        if (text.isBlank()) return
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        context.startActivity(Intent.createChooser(intent, "Bagikan"))
+    }
+
+    fun startVoice() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, uiState.sourceLang.code)
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Bicara sekarang...")
+        }
+        try {
+            voiceLauncher.launch(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Voice input tidak tersedia", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // --- Dialogs ---
     if (showSourcePicker) {
         LanguagePickerDialog(
             title = "Pilih Bahasa Sumber",
             currentLang = uiState.sourceLang,
-            onLanguageSelected = { viewModel.onSourceLangChanged(it); showSourcePicker = false },
+            onLanguageSelected = {
+                viewModel.onSourceLangChanged(it)
+                showSourcePicker = false
+            },
             onDismiss = { showSourcePicker = false }
         )
     }
+
     if (showTargetPicker) {
         LanguagePickerDialog(
             title = "Pilih Bahasa Tujuan",
             currentLang = uiState.targetLang,
-            onLanguageSelected = { viewModel.onTargetLangChanged(it); showTargetPicker = false },
+            onLanguageSelected = {
+                viewModel.onTargetLangChanged(it)
+                showTargetPicker = false
+            },
             onDismiss = { showTargetPicker = false }
         )
     }
 
     Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Translator",
+                        fontWeight = FontWeight.Bold,
+                        color = PurpleColor
+                    )
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = WhiteColor
+                )
+            )
+        },
         bottomBar = {
-            NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
+            NavigationBar(
+                containerColor = WhiteColor,
+                tonalElevation = 0.dp // Flat design
+            ) {
                 NavigationBarItem(
-                    selected = currentTab == ScreenTab.Translate,
-                    onClick = { currentTab = ScreenTab.Translate },
-                    icon = { Icon(Icons.Default.Translate, null) },
-                    label = { Text("Translate", fontSize = 10.sp) },
+                    selected = true,
+                    onClick = { /* Navigasi */ },
+                    icon = { Icon(Icons.Default.Translate, contentDescription = null) },
+                    label = { Text("Translate") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = PurpleColor,
+                        selectedTextColor = PurpleColor,
                         indicatorColor = LightPurpleColor
                     )
                 )
                 NavigationBarItem(
-                    selected = currentTab == ScreenTab.Dialogue,
-                    onClick = {
-                        currentTab = ScreenTab.Dialogue
-                        viewModel.onInputChanged("")
-                    },
-                    icon = { Icon(Icons.Default.Chat, null) },
-                    label = { Text("Dialogue", fontSize = 10.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PurpleColor,
-                        indicatorColor = LightPurpleColor
-                    )
+                    selected = false,
+                    onClick = { /* Navigasi */ },
+                    icon = { Icon(Icons.Default.History, contentDescription = null) },
+                    label = { Text("History") }
                 )
                 NavigationBarItem(
-                    selected = currentTab == ScreenTab.Camera,
-                    onClick = { currentTab = ScreenTab.Camera },
-                    icon = { Icon(Icons.Default.PhotoCamera, null) },
-                    label = { Text("Camera", fontSize = 10.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PurpleColor,
-                        indicatorColor = LightPurpleColor
-                    )
-                )
-                NavigationBarItem(
-                    selected = currentTab == ScreenTab.History,
-                    onClick = { currentTab = ScreenTab.History },
-                    icon = { Icon(Icons.Default.History, null) },
-                    label = { Text("History", fontSize = 10.sp) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PurpleColor,
-                        indicatorColor = LightPurpleColor
-                    )
+                    selected = false,
+                    onClick = { /* Navigasi */ },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    label = { Text("Settings") }
                 )
             }
-        }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { startVoice() },
+                containerColor = PurpleColor,
+                contentColor = WhiteColor,
+                shape = CircleShape,
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                Icon(
+                    Icons.Default.Mic,
+                    contentDescription = "Voice Input",
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            when (currentTab) {
-                ScreenTab.Translate -> TranslateDisplay(
-                    viewModel, uiState,
-                    { showSourcePicker = true },
-                    { showTargetPicker = true }
-                )
-
-                ScreenTab.Dialogue -> DialogueDisplay(
-                    uiState = uiState,
-                    onMicClick = { langCode, _ ->
-                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                            putExtra(
-                                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                            )
-                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, langCode)
-                        }
-                        try {
-                            voiceLauncher.launch(intent)
-                        } catch (e: Exception) {
-                        }
-                    },
-                    tts = tts,
-                    ttsReady = ttsReady,
-                    onClearInput = { viewModel.onInputChanged("") }
-                )
-
-                ScreenTab.Camera -> CameraDisplay()
-                ScreenTab.History -> HistoryDisplay()
-            }
-        }
-    }
-}
-
-@Composable
-fun TranslateDisplay(
-    viewModel: TranslatorViewModel,
-    uiState: TranslatorUiState,
-    onSourceClick: () -> Unit,
-    onTargetClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState())
-    ) {
-        Text("Translate", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PurpleColor)
-        Spacer(modifier = Modifier.height(24.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF8F9FA)) // Background abu-abu sangat muda agar card terlihat kontras
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Button(
-                onClick = onSourceClick,
-                colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(uiState.sourceLang.name, color = PurpleColor)
-            }
-            IconButton(
-                onClick = { viewModel.onSwapLanguages() },
-                modifier = Modifier.background(DarkPurpleColor, RoundedCornerShape(12.dp))
-            ) {
-                Icon(Icons.AutoMirrored.Filled.CompareArrows, null, tint = Color.White)
-            }
-            Button(
-                onClick = onTargetClick,
-                colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(uiState.targetLang.name, color = PurpleColor)
-            }
-        }
-        Spacer(modifier = Modifier.height(24.dp))
-        InputSection(uiState.inputText, { viewModel.onInputChanged(it) }, {}, {})
-        Spacer(modifier = Modifier.height(24.dp))
-        OutputSection(uiState.outputText, uiState.isLoading, uiState.isError, {}, {}, {})
-    }
-}
-
-// --- PERBAIKAN: Menambahkan fungsi DialogueDisplay yang tadinya hilang ---
-@Composable
-fun DialogueDisplay(
-    uiState: TranslatorUiState,
-    onMicClick: (String, Boolean) -> Unit,
-    tts: TextToSpeech?,
-    ttsReady: () -> Boolean,
-    onClearInput: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Dialogue", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = PurpleColor)
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // Tombol Mic untuk Bicara
-        FloatingActionButton(
-            onClick = { onMicClick(uiState.sourceLang.code, true) },
-            containerColor = PurpleColor,
-            contentColor = Color.White,
-            shape = RoundedCornerShape(50.dp),
-            modifier = Modifier.size(80.dp)
-        ) {
-            Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(40.dp))
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-        Text("Tap to Speak (${uiState.sourceLang.name})", color = Color.Gray)
-
-        if (uiState.inputText.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(30.dp))
-            Card(
+            // --- Language Selector Card ---
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = LightPurpleColor),
-                shape = RoundedCornerShape(16.dp)
+                shape = RoundedCornerShape(24.dp),
+                color = WhiteColor,
+                shadowElevation = 2.dp
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = uiState.inputText, fontSize = 18.sp, color = Color.Black)
-                    if (uiState.outputText.isNotEmpty()) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 8.dp),
-                            color = PurpleColor.copy(alpha = 0.2f)
-                        )
+                Row(
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { showSourcePicker = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Text(
-                            text = uiState.outputText,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PurpleColor
+                            uiState.sourceLang.name,
+                            color = PurpleColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.onSwapLanguages() },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(LightPurpleColor)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.CompareArrows,
+                            contentDescription = "Swap",
+                            tint = PurpleColor
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { showTargetPicker = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            uiState.targetLang.name,
+                            color = PurpleColor,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
             }
 
-            TextButton(onClick = onClearInput) {
-                Text("Clear Conversation", color = Color.Red)
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // --- Input Section ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = WhiteColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    InputSection(
+                        inputText = uiState.inputText,
+                        onInputChanged = { viewModel.onInputChanged(it) },
+                        onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
+                        onCopy = { copyText(uiState.inputText) }
+                    )
+                }
             }
+            if (uiState.detectedLanguage != null) {
+                TextButton(
+                    onClick = { viewModel.applyDetectedLanguage() },
+                    modifier = Modifier.align(Alignment.Start).padding(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = "Terdeteksi: ${uiState.detectedLanguage?.name}. Klik untuk gunakan?",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = PurpleColor
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+
+
+            // --- Output Section ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = WhiteColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    OutputSection(
+                        outputText = uiState.outputText,
+                        isLoading = uiState.isLoading,
+                        isError = uiState.isError,
+                        onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
+                        onCopy = { copyText(uiState.outputText) },
+                        onShare = { shareText(uiState.outputText) }
+                    )
+                }
+            }
+
+            // Memberi ruang di bawah agar tidak tertutup FAB
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }
 
-@Composable
-fun CameraDisplay() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Camera Screen") }
-}
+class TranslatorScreen {
 
-@Composable
-fun HistoryDisplay() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("History Screen") }
 }

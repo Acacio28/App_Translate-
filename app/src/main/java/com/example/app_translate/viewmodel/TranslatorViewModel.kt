@@ -20,7 +20,9 @@ data class TranslatorUiState(
     val inputText: String = "",
     val outputText: String = "",
     val isLoading: Boolean = false,
-    val isError: Boolean = false
+    val isError: Boolean = false,
+    // 1. TAMBAHKAN INI: Untuk menyimpan saran bahasa yang terdeteksi
+    val detectedLanguage: Language? = null
 )
 
 class TranslatorViewModel(
@@ -31,8 +33,6 @@ class TranslatorViewModel(
     val uiState: StateFlow<TranslatorUiState> = _uiState.asStateFlow()
 
     private var translateJob: Job? = null
-
-    // Inisialisasi Google ML Kit Language ID
     private val languageIdentifier = LanguageIdentification.getClient()
 
     fun onInputChanged(text: String) {
@@ -41,7 +41,8 @@ class TranslatorViewModel(
     }
 
     fun onSourceLangChanged(lang: Language) {
-        _uiState.update { it.copy(sourceLang = lang) }
+        // Reset detectedLanguage saat user mengganti bahasa secara manual
+        _uiState.update { it.copy(sourceLang = lang, detectedLanguage = null) }
         triggerTranslate()
     }
 
@@ -50,11 +51,21 @@ class TranslatorViewModel(
         triggerTranslate()
     }
 
+    // 2. TAMBAHKAN INI: Fungsi untuk menerapkan saran bahasa
+    fun applyDetectedLanguage() {
+        val detected = _uiState.value.detectedLanguage
+        if (detected != null) {
+            _uiState.update { it.copy(sourceLang = detected, detectedLanguage = null) }
+            triggerTranslate()
+        }
+    }
+
     fun onSwapLanguages() {
         _uiState.update { state ->
             state.copy(
                 sourceLang = state.targetLang,
-                targetLang = state.sourceLang
+                targetLang = state.sourceLang,
+                detectedLanguage = null
             )
         }
         triggerTranslate()
@@ -64,39 +75,39 @@ class TranslatorViewModel(
         val state = _uiState.value
 
         if (state.inputText.isBlank()) {
-            _uiState.update { it.copy(outputText = "", isLoading = false, isError = false) }
+            _uiState.update {
+                it.copy(outputText = "", isLoading = false, isError = false, detectedLanguage = null)
+            }
             return
         }
 
         translateJob?.cancel()
         translateJob = viewModelScope.launch {
-            delay(600) // Tunggu user selesai mengetik
+            delay(600)
 
             _uiState.update { it.copy(isLoading = true, isError = false) }
 
-            // Deteksi bahasa teks yang diinput
+            // 3. UPDATE LOGIKA DETEKSI DI SINI
             languageIdentifier.identifyLanguage(state.inputText)
                 .addOnSuccessListener { detectedLanguageCode ->
-                    val selectedSourceCode = state.sourceLang.code
+                    val currentSourceCode = _uiState.value.sourceLang.code
 
-                    // LOGIKA UTAMA:
-                    // Jika bahasa yang diketik (detected) BUKAN bahasa asal yang dipilih (source)
-                    // Dan bahasa tersebut terdeteksi (bukan "und")
-                    if (detectedLanguageCode != "und" && detectedLanguageCode != selectedSourceCode) {
-                        _uiState.update {
-                            it.copy(
-                                outputText = state.inputText, // Langsung copy teks asli ke output
-                                isLoading = false,
-                                isError = false
-                            )
-                        }
+                    // Cari apakah kode bahasa yang dideteksi ada di daftar aplikasi kita
+                    val detectedLang = languages.find { it.code == detectedLanguageCode }
+
+                    if (detectedLang != null && detectedLanguageCode != "und" && detectedLanguageCode != currentSourceCode) {
+                        // Jika terdeteksi bahasa lain, munculkan saran (suggestion)
+                        _uiState.update { it.copy(detectedLanguage = detectedLang) }
                     } else {
-                        // Jika bahasa sesuai, lakukan proses terjemahan normal
-                        performTranslation(state)
+                        // Jika bahasa cocok atau tidak dikenal, hapus saran
+                        _uiState.update { it.copy(detectedLanguage = null) }
                     }
+
+                    // Tetap lakukan translasi dengan bahasa yang sedang terpilih
+                    performTranslation(_uiState.value)
                 }
                 .addOnFailureListener {
-                    performTranslation(state)
+                    performTranslation(_uiState.value)
                 }
         }
     }
