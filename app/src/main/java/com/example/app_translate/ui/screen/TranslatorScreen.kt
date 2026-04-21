@@ -1,5 +1,3 @@
-package com.example.app_translate.ui.screen
-
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -10,31 +8,61 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app_translate.ui.components.InputSection
 import com.example.app_translate.ui.components.LanguagePickerDialog
 import com.example.app_translate.ui.components.OutputSection
-import com.example.app_translate.ui.theme.*
+import com.example.app_translate.ui.theme.LightPurpleColor
+import com.example.app_translate.ui.theme.PurpleColor
+import com.example.app_translate.ui.theme.WhiteColor
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import java.util.Locale
 
@@ -62,7 +90,7 @@ fun TranslatorScreen(
         }
     }
 
-    // Fungsi bantuan (Speak, Copy, Share, Voice)
+    // --- Helper Functions ---
     fun speakText(text: String, langCode: String) {
         if (!ttsReady() || text.isBlank()) return
         val locale = when (langCode) {
@@ -98,7 +126,10 @@ fun TranslatorScreen(
 
     fun startVoice() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, uiState.sourceLang.code)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Bicara sekarang...")
         }
@@ -109,7 +140,7 @@ fun TranslatorScreen(
         }
     }
 
-    // Dialogs
+    // --- Dialogs ---
     if (showSourcePicker) {
         LanguagePickerDialog(
             title = "Pilih Bahasa Sumber",
@@ -135,10 +166,24 @@ fun TranslatorScreen(
     }
 
     Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Translator",
+                        fontWeight = FontWeight.Bold,
+                        color = PurpleColor
+                    )
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = WhiteColor
+                )
+            )
+        },
         bottomBar = {
             NavigationBar(
                 containerColor = WhiteColor,
-                tonalElevation = 8.dp
+                tonalElevation = 0.dp // Flat design
             ) {
                 NavigationBarItem(
                     selected = true,
@@ -164,92 +209,130 @@ fun TranslatorScreen(
                     label = { Text("Settings") }
                 )
             }
-        }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { startVoice() },
+                containerColor = PurpleColor,
+                contentColor = WhiteColor,
+                shape = CircleShape,
+                modifier = Modifier.padding(bottom = 16.dp)
+            ) {
+                Icon(
+                    Icons.Default.Mic,
+                    contentDescription = "Voice Input",
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(WhiteColor)
+                .background(Color(0xFFF8F9FA)) // Background abu-abu sangat muda agar card terlihat kontras
                 .padding(innerPadding)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Translator App",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = PurpleColor,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-
-            Row(
+            // --- Language Selector Card ---
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                shape = RoundedCornerShape(24.dp),
+                color = WhiteColor,
+                shadowElevation = 2.dp
             ) {
-                Button(
-                    onClick = { showSourcePicker = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(text = uiState.sourceLang.name, color = PurpleColor)
-                }
-
-                // Tombol Swap menggunakan Icon yang benar
-                IconButton(
-                    onClick = { viewModel.onSwapLanguages() },
+                Row(
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(DarkPurpleColor, RoundedCornerShape(12.dp))
+                        .padding(8.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.CompareArrows,
-                        contentDescription = "Swap",
-                        tint = WhiteColor
+                    TextButton(
+                        onClick = { showSourcePicker = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            uiState.sourceLang.name,
+                            color = PurpleColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.onSwapLanguages() },
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(LightPurpleColor)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.CompareArrows,
+                            contentDescription = "Swap",
+                            tint = PurpleColor
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { showTargetPicker = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            uiState.targetLang.name,
+                            color = PurpleColor,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // --- Input Section ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = WhiteColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    InputSection(
+                        inputText = uiState.inputText,
+                        onInputChanged = { viewModel.onInputChanged(it) },
+                        onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
+                        onCopy = { copyText(uiState.inputText) }
                     )
                 }
+            }
 
-                Button(
-                    onClick = { showTargetPicker = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = LightPurpleColor),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(text = uiState.targetLang.name, color = PurpleColor)
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // --- Output Section ---
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = WhiteColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    OutputSection(
+                        outputText = uiState.outputText,
+                        isLoading = uiState.isLoading,
+                        isError = uiState.isError,
+                        onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
+                        onCopy = { copyText(uiState.outputText) },
+                        onShare = { shareText(uiState.outputText) }
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            InputSection(
-                inputText = uiState.inputText,
-                onInputChanged = { viewModel.onInputChanged(it) },
-                onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
-                onCopy = { copyText(uiState.inputText) }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            OutputSection(
-                outputText = uiState.outputText,
-                isLoading = uiState.isLoading,
-                isError = uiState.isError,
-                onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
-                onCopy = { copyText(uiState.outputText) },
-                onShare = { shareText(uiState.outputText) }
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Button(
-                onClick = { startVoice() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PurpleColor),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(text = "🎤 Voice Input", fontSize = 16.sp, color = WhiteColor)
-            }
+            // Memberi ruang di bawah agar tidak tertutup FAB
+            Spacer(modifier = Modifier.height(80.dp))
         }
     }
+}
+
+class TranslatorScreen {
+
 }

@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.app_translate"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.example.app_translate"
@@ -60,4 +60,5 @@ dependencies {
     implementation("com.google.mlkit:language-id:17.0.6")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
 }

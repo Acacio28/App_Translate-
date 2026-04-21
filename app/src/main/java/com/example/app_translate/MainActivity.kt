@@ -1,10 +1,14 @@
 package com.example.app_translate
+
+import TranslatorScreen
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.example.app_translate.ui.screen.TranslatorScreen
+import com.example.app_translate.ui.theme.App_TranslateTheme
+import java.util.Locale
+
 
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
@@ -13,22 +17,32 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        // Inisialisasi TTS sebelum setContent
         tts = TextToSpeech(this, this)
 
+        enableEdgeToEdge()
+
         setContent {
-            TranslatorScreen(
-                tts = tts,
-                ttsReady = { ttsReady }
-            )
+            App_TranslateTheme {
+                TranslatorScreen(
+                    tts = tts,
+                    ttsReady = { ttsReady }
+                )
+            }
         }
     }
 
     override fun onInit(status: Int) {
-        ttsReady = (status == TextToSpeech.SUCCESS)
+        if (status == TextToSpeech.SUCCESS) {
+            // Set bahasa default agar tidak error saat pertama kali digunakan
+            tts?.language = Locale.US
+            ttsReady = true
+        }
     }
 
     override fun onDestroy() {
+        // Penting untuk mencegah memory leak yang bisa bikin crash saat app ditutup
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()
