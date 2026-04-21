@@ -305,8 +305,21 @@ fun TranslatorScreen(
                     )
                 }
             }
+            if (uiState.detectedLanguage != null) {
+                TextButton(
+                    onClick = { viewModel.applyDetectedLanguage() },
+                    modifier = Modifier.align(Alignment.Start).padding(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = "Terdeteksi: ${uiState.detectedLanguage?.name}. Klik untuk gunakan?",
+                        style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                        color = PurpleColor
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
-            Spacer(modifier = Modifier.height(16.dp))
 
             // --- Output Section ---
             Card(
