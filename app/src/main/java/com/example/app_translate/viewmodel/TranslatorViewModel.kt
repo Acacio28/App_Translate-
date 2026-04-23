@@ -1,17 +1,17 @@
-package com.example.app_translate.viewmodel
+package com.example.app_translate.viewmodel // Pastikan folder kamu adalah app/java/com/example/app_translate/viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.app_translate.data.local.AppDatabase
+import com.example.app_translate.data.local.HistoryEntity
 import com.example.app_translate.data.model.Language
 import com.example.app_translate.data.model.languages
 import com.example.app_translate.data.repository.TranslateRepository
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
 data class TranslatorUiState(
@@ -21,13 +21,15 @@ data class TranslatorUiState(
     val outputText: String = "",
     val isLoading: Boolean = false,
     val isError: Boolean = false,
-    // 1. TAMBAHKAN INI: Untuk menyimpan saran bahasa yang terdeteksi
-    val detectedLanguage: Language? = null
+    val detectedLanguage: Language? = null,
+    val historyList: List<HistoryEntity> = emptyList()
 )
 
-class TranslatorViewModel(
+class TranslatorViewModel(application: Application) : AndroidViewModel(application) {
+
     private val repository: TranslateRepository = TranslateRepository()
-) : ViewModel() {
+    private val db = AppDatabase.getDatabase(application)
+    private val historyDao = db.historyDao()
 
     private val _uiState = MutableStateFlow(TranslatorUiState())
     val uiState: StateFlow<TranslatorUiState> = _uiState.asStateFlow()
@@ -35,13 +37,20 @@ class TranslatorViewModel(
     private var translateJob: Job? = null
     private val languageIdentifier = LanguageIdentification.getClient()
 
+    init {
+        viewModelScope.launch {
+            historyDao.getAllHistory().collect { list ->
+                _uiState.update { it.copy(historyList = list) }
+            }
+        }
+    }
+
     fun onInputChanged(text: String) {
         _uiState.update { it.copy(inputText = text) }
         triggerTranslate()
     }
 
     fun onSourceLangChanged(lang: Language) {
-        // Reset detectedLanguage saat user mengganti bahasa secara manual
         _uiState.update { it.copy(sourceLang = lang, detectedLanguage = null) }
         triggerTranslate()
     }
@@ -51,7 +60,6 @@ class TranslatorViewModel(
         triggerTranslate()
     }
 
-    // 2. TAMBAHKAN INI: Fungsi untuk menerapkan saran bahasa
     fun applyDetectedLanguage() {
         val detected = _uiState.value.detectedLanguage
         if (detected != null) {
@@ -71,44 +79,49 @@ class TranslatorViewModel(
         triggerTranslate()
     }
 
+    private fun addToHistory(source: String, target: String, sLang: String, tLang: String) {
+        if (source.isBlank() || target.isBlank()) return
+        viewModelScope.launch {
+            historyDao.insertHistory(
+                HistoryEntity(
+                    sourceText = source,
+                    targetText = target,
+                    sourceLang = sLang,
+                    targetLang = tLang
+                )
+            )
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            historyDao.clearAll()
+        }
+    }
+
     private fun triggerTranslate() {
         val state = _uiState.value
-
         if (state.inputText.isBlank()) {
-            _uiState.update {
-                it.copy(outputText = "", isLoading = false, isError = false, detectedLanguage = null)
-            }
+            _uiState.update { it.copy(outputText = "", isLoading = false, detectedLanguage = null) }
             return
         }
 
         translateJob?.cancel()
         translateJob = viewModelScope.launch {
             delay(600)
-
             _uiState.update { it.copy(isLoading = true, isError = false) }
 
-            // 3. UPDATE LOGIKA DETEKSI DI SINI
             languageIdentifier.identifyLanguage(state.inputText)
-                .addOnSuccessListener { detectedLanguageCode ->
-                    val currentSourceCode = _uiState.value.sourceLang.code
-
-                    // Cari apakah kode bahasa yang dideteksi ada di daftar aplikasi kita
-                    val detectedLang = languages.find { it.code == detectedLanguageCode }
-
-                    if (detectedLang != null && detectedLanguageCode != "und" && detectedLanguageCode != currentSourceCode) {
-                        // Jika terdeteksi bahasa lain, munculkan saran (suggestion)
-                        _uiState.update { it.copy(detectedLanguage = detectedLang) }
+                .addOnSuccessListener { code ->
+                    val detected = languages.find { it.code == code }
+                    if (detected != null && code != _uiState.value.sourceLang.code) {
+                        _uiState.update { it.copy(detectedLanguage = detected) }
                     } else {
-                        // Jika bahasa cocok atau tidak dikenal, hapus saran
                         _uiState.update { it.copy(detectedLanguage = null) }
                     }
-
-                    // Tetap lakukan translasi dengan bahasa yang sedang terpilih
                     performTranslation(_uiState.value)
                 }
-                .addOnFailureListener {
-                    performTranslation(_uiState.value)
-                }
+                .addOnFailureListener { performTranslation(_uiState.value) }
         }
     }
 
@@ -118,15 +131,10 @@ class TranslatorViewModel(
             result.fold(
                 onSuccess = { translated ->
                     _uiState.update { it.copy(outputText = translated, isLoading = false) }
+                    addToHistory(state.inputText, translated, state.sourceLang.name, state.targetLang.name)
                 },
                 onFailure = {
-                    _uiState.update {
-                        it.copy(
-                            outputText = "Gagal menerjemahkan. Cek koneksi.",
-                            isLoading = false,
-                            isError = true
-                        )
-                    }
+                    _uiState.update { it.copy(outputText = "Gagal menerjemahkan.", isLoading = false, isError = true) }
                 }
             )
         }
