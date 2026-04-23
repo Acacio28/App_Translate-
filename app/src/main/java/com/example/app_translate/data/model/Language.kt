@@ -12,6 +12,6 @@ val languages = listOf(
     Language("Arabic", "ar"),
     Language("Chinese", "zh"),
     Language("Tetum", "tet"),
-    Language("Portugues", "pt")
+    Language("Portuguese", "pt")
 )
 
