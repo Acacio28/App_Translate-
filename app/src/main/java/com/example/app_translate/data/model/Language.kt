@@ -4,6 +4,7 @@ data class Language(val name: String, val code: String)
 
 val languages = listOf(
     Language("English", "en"),
+    Language("Portuguese", "pt"),
     Language("Indonesian", "id"),
     Language("Spanish", "es"),
     Language("French", "fr"),
