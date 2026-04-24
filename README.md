@@ -19,7 +19,8 @@
 * No lian sira seluk tan.
 * **Deteksaun Lian Automátiku:** Deteta lian ne'ebé hatama (input) ho automátiku.
 * **Istória Tradusaun:** Rai lista tradusaun sira ne'ebé foin halo ona hodi bele haree fali iha futuru.
-* **Testu-ba-Lian (Text-to-Speech):** Rona pronúnsia husi rezultadu tradusaun sira.
+* **Testu-ba-Lian (Text-to-Speech):** Rona pronunsia husi rezultadu tradusaun sira.
+* **History ba lian ** Funsaun prinsipál mak atu rai lista husi liafuan ka fraze hotu ne’ebé ita tradús ona.
 
 ---
 
