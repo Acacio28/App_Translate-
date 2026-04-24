@@ -1,4 +1,4 @@
-package com.example.app_translate.ui.screen // <--- 1. WAJIB ADA PACKAGE
+package com.example.app_translate.ui.screen
 
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -50,14 +50,17 @@ fun TranslatorScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // State untuk mengatur tab mana yang aktif
     var currentTab by remember { mutableStateOf("translate") }
+
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
 
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        val spoken =
+            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         if (spoken != null) {
             viewModel.onInputChanged(spoken)
         }
@@ -93,7 +96,10 @@ fun TranslatorScreen(
 
     fun startVoice() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(
+                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+            )
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, uiState.sourceLang.code)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Bicara sekarang...")
         }
@@ -126,29 +132,56 @@ fun TranslatorScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Translator", fontWeight = FontWeight.Bold, color = PurpleColor) },
+                title = {
+                    val title = when (currentTab) {
+                        "translate" -> "Translator"
+                        "camera" -> "Camera Scan"
+                        else -> "History"
+                    }
+                    Text(title, fontWeight = FontWeight.Bold, color = PurpleColor)
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = WhiteColor)
             )
         },
         bottomBar = {
             NavigationBar(containerColor = WhiteColor, tonalElevation = 0.dp) {
+                // Menu Translate
                 NavigationBarItem(
                     selected = currentTab == "translate",
                     onClick = { currentTab = "translate" },
                     icon = { Icon(Icons.Default.Translate, null) },
                     label = { Text("Translate") },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = PurpleColor, indicatorColor = LightPurpleColor)
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = PurpleColor,
+                        indicatorColor = LightPurpleColor
+                    )
                 )
+                // MENU BARU: Camera (Sejajar)
+                NavigationBarItem(
+                    selected = currentTab == "camera",
+                    onClick = { currentTab = "camera" },
+                    icon = { Icon(Icons.Default.PhotoCamera, null) },
+                    label = { Text("Camera") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = PurpleColor,
+                        indicatorColor = LightPurpleColor
+                    )
+                )
+                // Menu History
                 NavigationBarItem(
                     selected = currentTab == "history",
                     onClick = { currentTab = "history" },
                     icon = { Icon(Icons.Default.History, null) },
                     label = { Text("History") },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = PurpleColor, indicatorColor = LightPurpleColor)
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = PurpleColor,
+                        indicatorColor = LightPurpleColor
+                    )
                 )
             }
         },
         floatingActionButton = {
+            // Mic hanya muncul di tab translate
             if (currentTab == "translate") {
                 FloatingActionButton(
                     onClick = { startVoice() },
@@ -156,7 +189,11 @@ fun TranslatorScreen(
                     contentColor = WhiteColor,
                     shape = CircleShape
                 ) {
-                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(30.dp))
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = null,
+                        modifier = Modifier.size(30.dp)
+                    )
                 }
             }
         },
@@ -181,21 +218,37 @@ fun TranslatorScreen(
                             shadowElevation = 2.dp
                         ) {
                             Row(
-                                modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                                modifier = Modifier
+                                    .padding(8.dp)
+                                    .fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TextButton(onClick = { showSourcePicker = true }) {
-                                    Text(uiState.sourceLang.name, color = PurpleColor, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        uiState.sourceLang.name,
+                                        color = PurpleColor,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
                                 IconButton(
                                     onClick = { viewModel.onSwapLanguages() },
-                                    modifier = Modifier.clip(CircleShape).background(LightPurpleColor)
+                                    modifier = Modifier
+                                        .clip(CircleShape)
+                                        .background(LightPurpleColor)
                                 ) {
-                                    Icon(Icons.AutoMirrored.Filled.CompareArrows, null, tint = PurpleColor)
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.CompareArrows,
+                                        null,
+                                        tint = PurpleColor
+                                    )
                                 }
                                 TextButton(onClick = { showTargetPicker = true }) {
-                                    Text(uiState.targetLang.name, color = PurpleColor, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        uiState.targetLang.name,
+                                        color = PurpleColor,
+                                        fontWeight = FontWeight.Medium
+                                    )
                                 }
                             }
                         }
@@ -213,7 +266,12 @@ fun TranslatorScreen(
                                 InputSection(
                                     inputText = uiState.inputText,
                                     onInputChanged = { viewModel.onInputChanged(it) },
-                                    onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
+                                    onSpeak = {
+                                        speakText(
+                                            uiState.inputText,
+                                            uiState.sourceLang.code
+                                        )
+                                    },
                                     onCopy = { copyText(uiState.inputText) }
                                 )
                             }
@@ -223,9 +281,14 @@ fun TranslatorScreen(
                         if (uiState.detectedLanguage != null) {
                             TextButton(
                                 onClick = { viewModel.applyDetectedLanguage() },
-                                modifier = Modifier.align(Alignment.Start).padding(horizontal = 8.dp)
+                                modifier = Modifier
+                                    .align(Alignment.Start)
+                                    .padding(horizontal = 8.dp)
                             ) {
-                                Text("Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?", color = PurpleColor)
+                                Text(
+                                    "Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?",
+                                    color = PurpleColor
+                                )
                             }
                         } else {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -243,7 +306,12 @@ fun TranslatorScreen(
                                     outputText = uiState.outputText,
                                     isLoading = uiState.isLoading,
                                     isError = uiState.isError,
-                                    onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
+                                    onSpeak = {
+                                        speakText(
+                                            uiState.outputText,
+                                            uiState.targetLang.code
+                                        )
+                                    },
                                     onCopy = { copyText(uiState.outputText) },
                                     onShare = { shareText(uiState.outputText) }
                                 )
@@ -252,6 +320,14 @@ fun TranslatorScreen(
                         Spacer(modifier = Modifier.height(80.dp))
                     }
                 }
+
+                "camera" -> {
+                    // Tampilkan CameraScreen di sini sebagai Tab
+                    CameraScreen(
+                        viewModel = viewModel, // Jika tekan back di kamera, balik ke tab translate
+                    )
+                }
+
                 "history" -> {
                     HistoryScreen(viewModel = viewModel)
                 }
