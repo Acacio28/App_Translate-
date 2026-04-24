@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "com.example.app_translate"
-    compileSdk = 35 // Saya sesuaikan dengan targetSdk agar optimal
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.app_translate"
@@ -30,7 +30,6 @@ android {
         }
     }
 
-    // Menggunakan Java 17 karena targetSdk 35 membutuhkan versi Java yang lebih baru
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -54,10 +53,14 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
 
-    // Library Tambahan untuk UI & ViewModel (Versi disamakan agar tidak bentrok)
+    // Library Tambahan untuk UI & ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
+
+    // --- PERBAIKAN NAVIGASI ---
+    // Hapus jvmstubs dan gunakan library Android yang asli di bawah ini:
+    implementation("androidx.navigation:navigation-compose:2.8.3")
 
     // ML Kit untuk Deteksi Bahasa dan Terjemahan
     implementation("com.google.mlkit:language-id:17.0.6")
@@ -67,10 +70,18 @@ dependencies {
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
-    // Baris kapt ini wajib ada agar AppDatabase_Impl bisa dibuat otomatis oleh sistem
     kapt("androidx.room:room-compiler:$room_version")
 
-    // Testing
+    // CameraX (Untuk fitur Camera Screen)
+    val camerax_version = "1.3.4"
+    implementation("androidx.camera:camera-camera2:$camerax_version")
+    implementation("androidx.camera:camera-lifecycle:$camerax_version")
+    implementation("androidx.camera:camera-view:$camerax_version")
+
+    // ML Kit Text Recognition (Untuk mendeteksi teks di kamera)
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
+    // Testing & Debugging
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
