@@ -26,7 +26,7 @@ fun OutputSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "HASIL TERJEMAHAN",
+            text = "REZULTADU TRADUSAUN",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = GrayColor,

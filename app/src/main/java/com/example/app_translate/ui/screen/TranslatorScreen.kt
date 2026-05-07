@@ -1,3 +1,5 @@
+package com.example.app_translate.ui.screen
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -143,7 +145,7 @@ fun TranslatorScreen(
     // --- Dialogs ---
     if (showSourcePicker) {
         LanguagePickerDialog(
-            title = "Pilih Bahasa Sumber",
+            title = "Hili Dalen",
             currentLang = uiState.sourceLang,
             onLanguageSelected = {
                 viewModel.onSourceLangChanged(it)
@@ -155,7 +157,7 @@ fun TranslatorScreen(
 
     if (showTargetPicker) {
         LanguagePickerDialog(
-            title = "Pilih Bahasa Tujuan",
+            title = "Hili Dalen Tujuan",
             currentLang = uiState.targetLang,
             onLanguageSelected = {
                 viewModel.onTargetLangChanged(it)
@@ -180,36 +182,6 @@ fun TranslatorScreen(
                 )
             )
         },
-        bottomBar = {
-            NavigationBar(
-                containerColor = WhiteColor,
-                tonalElevation = 0.dp // Flat design
-            ) {
-                NavigationBarItem(
-                    selected = true,
-                    onClick = { /* Navigasi */ },
-                    icon = { Icon(Icons.Default.Translate, contentDescription = null) },
-                    label = { Text("Translate") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PurpleColor,
-                        selectedTextColor = PurpleColor,
-                        indicatorColor = LightPurpleColor
-                    )
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { /* Navigasi */ },
-                    icon = { Icon(Icons.Default.History, contentDescription = null) },
-                    label = { Text("History") }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { /* Navigasi */ },
-                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                    label = { Text("Settings") }
-                )
-            }
-        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { startVoice() },
@@ -230,13 +202,12 @@ fun TranslatorScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8F9FA)) // Background abu-abu sangat muda agar card terlihat kontras
+                .background(Color(0xFFF8F9FA))
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // --- Language Selector Card ---
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
@@ -289,7 +260,6 @@ fun TranslatorScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // --- Input Section ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
@@ -320,8 +290,6 @@ fun TranslatorScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-
-            // --- Output Section ---
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
@@ -340,12 +308,7 @@ fun TranslatorScreen(
                 }
             }
 
-            // Memberi ruang di bawah agar tidak tertutup FAB
             Spacer(modifier = Modifier.height(80.dp))
         }
     }
-}
-
-class TranslatorScreen {
-
 }

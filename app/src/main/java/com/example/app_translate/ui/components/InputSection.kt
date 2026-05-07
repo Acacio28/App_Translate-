@@ -33,7 +33,7 @@ fun InputSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "MASUKKAN TEKS",
+            text = "INSERE TEXTU",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = GrayColor, // Diambil dari Color.kt

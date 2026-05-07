@@ -1,4 +1,7 @@
+package com.example.app_translate.ui.components
+
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
@@ -12,8 +15,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.ui.theme.WhiteColor
+import com.example.app_translate.ui.theme.LightPurpleColor
 
-// Import warna dari theme kamu
 data class NavigationItem(
     val label: String,
     val icon: ImageVector,
@@ -21,27 +24,34 @@ data class NavigationItem(
 )
 
 @Composable
-fun BottomNavigationBar() {
+fun BottomNavigationBar(
+    currentRoute: String,
+    onItemSelected: (String) -> Unit
+) {
     val items = listOf(
         NavigationItem("Translate", Icons.Default.Translate, "translate"),
+        NavigationItem("Dialogue", Icons.Default.Chat, "dialogue"),
         NavigationItem("History", Icons.Default.History, "history"),
         NavigationItem("Settings", Icons.Default.Settings, "settings")
     )
 
     NavigationBar(
-        containerColor = WhiteColor, // Sekarang tidak akan ambigu lagi
+        containerColor = WhiteColor,
         tonalElevation = 8.dp
     ) {
         items.forEach { item ->
+            val isSelected = currentRoute == item.route
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = item.label) },
                 label = { Text(item.label) },
-                selected = item.route == "translate",
-                onClick = { /* Navigasi */ },
+                selected = isSelected,
+                onClick = { onItemSelected(item.route) },
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = PurpleColor,
                     selectedTextColor = PurpleColor,
-                    indicatorColor = WhiteColor
+                    indicatorColor = LightPurpleColor,
+                    unselectedIconColor = PurpleColor.copy(alpha = 0.5f),
+                    unselectedTextColor = PurpleColor.copy(alpha = 0.5f)
                 )
             )
         }
