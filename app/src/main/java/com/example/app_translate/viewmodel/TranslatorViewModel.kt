@@ -1,4 +1,4 @@
-package com.example.app_translate.viewmodel // Pastikan folder kamu adalah app/java/com/example/app_translate/viewmodel
+package com.example.app_translate.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -14,6 +14,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+// ✅ BARU: Data class untuk pesan dialogue
+data class DialogueMessage(
+    val originalText: String,
+    val translatedText: String,
+    val isUser: Boolean,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 data class TranslatorUiState(
     val sourceLang: Language = languages[0],
     val targetLang: Language = languages[1],
@@ -22,7 +30,10 @@ data class TranslatorUiState(
     val isLoading: Boolean = false,
     val isError: Boolean = false,
     val detectedLanguage: Language? = null,
-    val historyList: List<HistoryEntity> = emptyList()
+    val historyList: List<HistoryEntity> = emptyList(),
+    // ✅ BARU: Tambahan untuk fitur Dialogue
+    val dialogueMessages: List<DialogueMessage> = emptyList(),
+    val isDialogueLoading: Boolean = false
 )
 
 class TranslatorViewModel(application: Application) : AndroidViewModel(application) {
@@ -44,6 +55,8 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
+
+    // ─── Fungsi Translate Tab ───────────────────────────────────────
 
     fun onInputChanged(text: String) {
         _uiState.update { it.copy(inputText = text) }
@@ -79,6 +92,12 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
         triggerTranslate()
     }
 
+    fun clearHistory() {
+        viewModelScope.launch {
+            historyDao.clearAll()
+        }
+    }
+
     private fun addToHistory(source: String, target: String, sLang: String, tLang: String) {
         if (source.isBlank() || target.isBlank()) return
         viewModelScope.launch {
@@ -90,12 +109,6 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
                     targetLang = tLang
                 )
             )
-        }
-    }
-
-    fun clearHistory() {
-        viewModelScope.launch {
-            historyDao.clearAll()
         }
     }
 
@@ -127,16 +140,90 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun performTranslation(state: TranslatorUiState) {
         viewModelScope.launch {
-            val result = repository.translate(state.inputText, state.sourceLang.code, state.targetLang.code)
+            val result = repository.translate(
+                state.inputText,
+                state.sourceLang.code,
+                state.targetLang.code
+            )
             result.fold(
                 onSuccess = { translated ->
                     _uiState.update { it.copy(outputText = translated, isLoading = false) }
                     addToHistory(state.inputText, translated, state.sourceLang.name, state.targetLang.name)
                 },
                 onFailure = {
-                    _uiState.update { it.copy(outputText = "Gagal menerjemahkan.", isLoading = false, isError = true) }
+                    _uiState.update {
+                        it.copy(outputText = "Gagal menerjemahkan.", isLoading = false, isError = true)
+                    }
                 }
             )
         }
+    }
+
+    // ─── ✅ BARU: Fungsi Dialogue Tab ───────────────────────────────
+
+    fun sendDialogueMessage(text: String) {
+        val state = _uiState.value
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDialogueLoading = true) }
+
+            // Terjemahkan pesan user: source → target
+            val userTranslation = repository.translate(
+                text,
+                state.sourceLang.code,
+                state.targetLang.code
+            )
+            val userTranslatedText = userTranslation.getOrElse { "..." }
+
+            // Tambahkan bubble user
+            val userMessage = DialogueMessage(
+                originalText = text,
+                translatedText = userTranslatedText,
+                isUser = true
+            )
+            _uiState.update { it.copy(dialogueMessages = it.dialogueMessages + userMessage) }
+
+            // Delay sedikit agar terasa natural
+            delay(800)
+
+            // AI generate balasan lalu terjemahkan balik: target → source
+            val aiReplyOriginal = generateAiReply()
+            val aiReplyTranslation = repository.translate(
+                aiReplyOriginal,
+                state.targetLang.code,
+                state.sourceLang.code
+            )
+            val aiTranslatedText = aiReplyTranslation.getOrElse { "..." }
+
+            // Tambahkan bubble AI
+            val aiMessage = DialogueMessage(
+                originalText = aiReplyOriginal,
+                translatedText = aiTranslatedText,
+                isUser = false
+            )
+            _uiState.update {
+                it.copy(
+                    dialogueMessages = it.dialogueMessages + aiMessage,
+                    isDialogueLoading = false
+                )
+            }
+        }
+    }
+
+    fun clearDialogue() {
+        _uiState.update { it.copy(dialogueMessages = emptyList()) }
+    }
+
+    private fun generateAiReply(): String {
+        val replies = listOf(
+            "That's interesting! Tell me more.",
+            "I understand. How can I help you?",
+            "Great point! What do you think about that?",
+            "I see! Can you explain further?",
+            "Sure, I'd be happy to help with that.",
+            "Noted! Is there anything else you'd like to discuss?",
+            "Really? That's quite fascinating!",
+            "Thanks for sharing that with me."
+        )
+        return replies.random()
     }
 }

@@ -50,9 +50,7 @@ fun TranslatorScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // State untuk mengatur tab mana yang aktif
     var currentTab by remember { mutableStateOf("translate") }
-
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
 
@@ -133,19 +131,33 @@ fun TranslatorScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
+                    // ✅ DIUPDATE: tambah case "dialogue"
                     val title = when (currentTab) {
                         "translate" -> "Translator"
-                        "camera" -> "Camera Scan"
-                        else -> "History"
+                        "camera"    -> "Camera Scan"
+                        "dialogue"  -> "Dialogue"
+                        else        -> "History"
                     }
                     Text(title, fontWeight = FontWeight.Bold, color = PurpleColor)
+                },
+                // ✅ BARU: Tombol clear chat di TopBar khusus tab dialogue
+                actions = {
+                    if (currentTab == "dialogue" && uiState.dialogueMessages.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.clearDialogue() }) {
+                            Icon(
+                                Icons.Default.DeleteSweep,
+                                contentDescription = "Hapus Chat",
+                                tint = Color.Red
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = WhiteColor)
             )
         },
         bottomBar = {
             NavigationBar(containerColor = WhiteColor, tonalElevation = 0.dp) {
-                // Menu Translate
+                // Tab Translate
                 NavigationBarItem(
                     selected = currentTab == "translate",
                     onClick = { currentTab = "translate" },
@@ -156,7 +168,18 @@ fun TranslatorScreen(
                         indicatorColor = LightPurpleColor
                     )
                 )
-                // MENU BARU: Camera (Sejajar)
+                // ✅ BARU: Tab Dialogue
+                NavigationBarItem(
+                    selected = currentTab == "dialogue",
+                    onClick = { currentTab = "dialogue" },
+                    icon = { Icon(Icons.Default.Chat, null) },
+                    label = { Text("Dialogue") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = PurpleColor,
+                        indicatorColor = LightPurpleColor
+                    )
+                )
+                // Tab Camera
                 NavigationBarItem(
                     selected = currentTab == "camera",
                     onClick = { currentTab = "camera" },
@@ -167,7 +190,7 @@ fun TranslatorScreen(
                         indicatorColor = LightPurpleColor
                     )
                 )
-                // Menu History
+                // Tab History
                 NavigationBarItem(
                     selected = currentTab == "history",
                     onClick = { currentTab = "history" },
@@ -267,10 +290,7 @@ fun TranslatorScreen(
                                     inputText = uiState.inputText,
                                     onInputChanged = { viewModel.onInputChanged(it) },
                                     onSpeak = {
-                                        speakText(
-                                            uiState.inputText,
-                                            uiState.sourceLang.code
-                                        )
+                                        speakText(uiState.inputText, uiState.sourceLang.code)
                                     },
                                     onCopy = { copyText(uiState.inputText) }
                                 )
@@ -307,10 +327,7 @@ fun TranslatorScreen(
                                     isLoading = uiState.isLoading,
                                     isError = uiState.isError,
                                     onSpeak = {
-                                        speakText(
-                                            uiState.outputText,
-                                            uiState.targetLang.code
-                                        )
+                                        speakText(uiState.outputText, uiState.targetLang.code)
                                     },
                                     onCopy = { copyText(uiState.outputText) },
                                     onShare = { shareText(uiState.outputText) }
@@ -321,11 +338,13 @@ fun TranslatorScreen(
                     }
                 }
 
+                // ✅ BARU: Tab Dialogue
+                "dialogue" -> {
+                    DialogueScreen(viewModel = viewModel)
+                }
+
                 "camera" -> {
-                    // Tampilkan CameraScreen di sini sebagai Tab
-                    CameraScreen(
-                        viewModel = viewModel, // Jika tekan back di kamera, balik ke tab translate
-                    )
+                    CameraScreen(viewModel = viewModel)
                 }
 
                 "history" -> {
