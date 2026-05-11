@@ -2,8 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Izin yang sudah ada -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- TAMBAHKAN INI: Izin Kamera -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Memberitahu sistem bahwa aplikasi menggunakan fitur kamera -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -15,6 +21,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.App_translate"
         tools:targetApi="31">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
