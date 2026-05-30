@@ -1,7 +1,9 @@
+package com.example.app_translate.ui.components
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.CameraAlt // New import
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -21,9 +23,10 @@ data class NavigationItem(
 )
 
 @Composable
-fun BottomNavigationBar() {
+fun BottomNavigationBar(currentRoute: String, onItemSelected: (String) -> Unit) { // Added parameters
     val items = listOf(
         NavigationItem("Translate", Icons.Default.Translate, "translate"),
+        NavigationItem("Camera", Icons.Default.CameraAlt, "camera"), // Added Camera item
         NavigationItem("History", Icons.Default.History, "history"),
         NavigationItem("Settings", Icons.Default.Settings, "settings")
     )
@@ -36,8 +39,8 @@ fun BottomNavigationBar() {
             NavigationBarItem(
                 icon = { Icon(item.icon, contentDescription = item.label) },
                 label = { Text(item.label) },
-                selected = item.route == "translate",
-                onClick = { /* Navigasi */ },
+                selected = currentRoute == item.route, // Corrected selected logic
+                onClick = { onItemSelected(item.route) }, // Corrected onClick logic
                 colors = NavigationBarItemDefaults.colors(
                     selectedIconColor = PurpleColor,
                     selectedTextColor = PurpleColor,

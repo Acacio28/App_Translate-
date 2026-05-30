@@ -1,4 +1,4 @@
-package com.example.app_translate.ui.screen // <--- BARIS INI WAJIB ADA DI PALING ATAS
+package com.example.app_translate.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,18 +19,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-// Import ini sekarang akan berfungsi karena package sudah benar
 import com.example.app_translate.data.local.HistoryEntity
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.ui.theme.WhiteColor
-import kotlin.text.uppercase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    viewModel: TranslatorViewModel = viewModel()
+    viewModel: TranslatorViewModel
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -55,9 +52,7 @@ fun HistoryScreen(
     ) { innerPadding ->
         if (uiState.historyList.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -120,13 +115,11 @@ fun HistoryCard(item: HistoryEntity) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
                 thickness = 0.5.dp,
                 color = Color.LightGray
             )
-
             Text(
                 text = item.targetText,
                 fontSize = 16.sp,

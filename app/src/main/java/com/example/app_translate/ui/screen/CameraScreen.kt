@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.filled.FlashOff
+import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.*
@@ -33,18 +35,35 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
+import android.speech.tts.TextToSpeech
+import androidx.compose.ui.geometry.Offset
 import androidx.core.content.ContextCompat
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import android.view.MotionEvent
+import androidx.camera.core.FocusMeteringAction
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle // New import
+
+enum class FlashMode {
+    OFF, ON, AUTO
+}
 
 @Composable
-fun CameraScreen(viewModel: TranslatorViewModel) {
+fun CameraScreen(
+    tts: TextToSpeech?,
+    ttsReady: () -> Boolean,
+    viewModel: TranslatorViewModel
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var hasCameraPermission by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
@@ -57,21 +76,77 @@ fun CameraScreen(viewModel: TranslatorViewModel) {
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     var imageCapture: ImageCapture? by remember { mutableStateOf(null) }
+    var currentFlashMode by remember { mutableStateOf(FlashMode.OFF) }
+    val cameraProvider = remember { cameraProviderFuture.get() }
+    var previewUseCase by remember { mutableStateOf<Preview?>(null) }
+    var camera: Camera? by remember { mutableStateOf(null) } // New state for Camera
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            val inputImage = InputImage.fromFilePath(context, it)
+            recognizer.process(inputImage)
+                .addOnSuccessListener { visionText ->
+                    viewModel.onInputChanged(visionText.text)
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(context, "Failed to process image: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+        }
+    }
+
+    val zoomState = rememberTransformableState { zoomChange, panChange, rotationChange ->
+        camera?.cameraControl?.setZoomRatio(
+            (camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 1f) * zoomChange
+        )
+    }
+
+    LaunchedEffect(currentFlashMode) {
+        if (hasCameraPermission) {
+            cameraProvider.unbindAll()
+
+            val newImageCapture = ImageCapture.Builder()
+                .setFlashMode(
+                    when (currentFlashMode) {
+                        FlashMode.ON -> ImageCapture.FLASH_MODE_ON
+                        FlashMode.OFF -> ImageCapture.FLASH_MODE_OFF
+                        FlashMode.AUTO -> ImageCapture.FLASH_MODE_AUTO
+                    }
+                )
+                .build()
+            imageCapture = newImageCapture
+
+            val newPreview = Preview.Builder().build()
+            previewUseCase = newPreview
+
+            camera = cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, newPreview, newImageCapture)
+        }
+    }
 
     if (hasCameraPermission) {
-        Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .transformable(state = zoomState)
+        ) {
 
             // 1. Full Screen Camera Preview
             AndroidView(
                 factory = { ctx ->
                     val previewView = PreviewView(ctx)
-                    cameraProviderFuture.addListener({
-                        val cameraProvider = cameraProviderFuture.get()
-                        val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
-                        imageCapture = ImageCapture.Builder().build()
-                        cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(lifecycleOwner, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
-                    }, ContextCompat.getMainExecutor(ctx))
+                    previewUseCase?.setSurfaceProvider(previewView.surfaceProvider)
+
+                    previewView.setOnTouchListener { v, event ->
+                        if (event.action == MotionEvent.ACTION_UP) {
+                            val factory = previewView.meteringPointFactory
+                            val point = factory.createPoint(event.x, event.y)
+                            val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+                                .disableAutoCancel()
+                                .build()
+                            camera?.cameraControl?.startFocusAndMetering(action)
+                        }
+                        true
+                    }
                     previewView
                 },
                 modifier = Modifier.fillMaxSize()
@@ -132,8 +207,19 @@ fun CameraScreen(viewModel: TranslatorViewModel) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Flash Icon
-                    IconButton(onClick = { /* Toggle Flash */ }) {
-                        Icon(Icons.Default.FlashOn, null, tint = Color.White)
+                    IconButton(onClick = {
+                        currentFlashMode = when (currentFlashMode) {
+                            FlashMode.OFF -> FlashMode.ON
+                            FlashMode.ON -> FlashMode.AUTO
+                            FlashMode.AUTO -> FlashMode.OFF
+                        }
+                    }) {
+                        val flashIcon = when (currentFlashMode) {
+                            FlashMode.OFF -> Icons.Default.FlashOff
+                            FlashMode.ON -> Icons.Default.FlashOn
+                            FlashMode.AUTO -> Icons.Default.FlashAuto
+                        }
+                        Icon(flashIcon, null, tint = Color.White)
                     }
 
                     // Shutter Button (Tombol Bulat Besar)
@@ -164,7 +250,9 @@ fun CameraScreen(viewModel: TranslatorViewModel) {
                     }
 
                     // Gallery Icon
-                    IconButton(onClick = { /* Open Gallery */ }) {
+                    IconButton(onClick = {
+                        galleryLauncher.launch("image/*")
+                    }) {
                         Icon(Icons.Default.PhotoLibrary, null, tint = Color.White)
                     }
                 }
