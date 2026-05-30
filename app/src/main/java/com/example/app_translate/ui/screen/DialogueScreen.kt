@@ -25,7 +25,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app_translate.ui.theme.*
 import com.example.app_translate.viewmodel.DialogueMessage
 import com.example.app_translate.viewmodel.TranslatorViewModel
@@ -35,12 +34,11 @@ import java.util.Locale
 fun DialogueScreen(
     tts: TextToSpeech?,
     ttsReady: () -> Boolean,
-    viewModel: TranslatorViewModel = viewModel()
+    viewModel: TranslatorViewModel
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
 
-    // Funsaun hodi AI ko'alia sai (TTS)
     val speakAI = { text: String, langCode: String ->
         if (ttsReady() && text.isNotBlank()) {
             tts?.language = Locale(langCode)
@@ -48,17 +46,17 @@ fun DialogueScreen(
         }
     }
 
-    // Launcher hodi rona user ko'alia
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.get(0)
+            val spokenText = result.data
+                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+                ?.get(0)
             spokenText?.let { viewModel.addDialogueMessage(it, isFromMe = true) }
         }
     }
 
-    // AI Auto-play lian tradusaun nian bainhira iha mensajen foun
     LaunchedEffect(uiState.dialogueMessages.size) {
         if (uiState.dialogueMessages.isNotEmpty()) {
             val lastMsg = uiState.dialogueMessages.last()
@@ -82,7 +80,6 @@ fun DialogueScreen(
             modifier = Modifier.padding(top = 16.dp)
         )
 
-        // Hatudu lian ne'ebé hili husi TranslatorScreen
         Text(
             text = "${uiState.sourceLang.name} ➔ ${uiState.targetLang.name}",
             style = MaterialTheme.typography.bodySmall,
@@ -91,10 +88,11 @@ fun DialogueScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Chat List
         LazyColumn(
             state = listState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(bottom = 80.dp)
         ) {
@@ -103,7 +101,6 @@ fun DialogueScreen(
             }
         }
 
-        // Microphone Button
         FloatingActionButton(
             onClick = {
                 val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -118,9 +115,9 @@ fun DialogueScreen(
             shape = CircleShape,
             modifier = Modifier.size(72.dp)
         ) {
-            Icon(Icons.Default.Mic, contentDescription = "User Speak", modifier = Modifier.size(36.dp))
+            Icon(Icons.Default.Mic, contentDescription = "Speak", modifier = Modifier.size(36.dp))
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
         Text("Speak in ${uiState.sourceLang.name}", fontSize = 12.sp, color = GrayColor)
     }
@@ -132,7 +129,7 @@ fun DialogueItemAI(message: DialogueMessage, onSpeak: (String, String) -> Unit) 
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.End
     ) {
-        // User (Lian Orijinál)
+        // Teks asli user
         Surface(
             shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
             color = LightPurpleColor,
@@ -147,11 +144,13 @@ fun DialogueItemAI(message: DialogueMessage, onSpeak: (String, String) -> Unit) 
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // AI (Tradusaun)
+        // Hasil terjemahan AI
         Surface(
             shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
             color = DarkPurpleColor,
-            modifier = Modifier.align(Alignment.Start).padding(end = 40.dp),
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(end = 40.dp),
             shadowElevation = 2.dp
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
@@ -161,12 +160,18 @@ fun DialogueItemAI(message: DialogueMessage, onSpeak: (String, String) -> Unit) 
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
-                
                 IconButton(
                     onClick = { onSpeak(message.translatedText, message.targetLangCode) },
-                    modifier = Modifier.size(24.dp).align(Alignment.End)
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.End)
                 ) {
-                    Icon(Icons.Default.VolumeUp, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Default.VolumeUp,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
                 }
             }
         }

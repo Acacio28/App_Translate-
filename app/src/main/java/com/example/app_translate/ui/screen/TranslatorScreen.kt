@@ -20,8 +20,6 @@ import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,7 +28,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app_translate.ui.components.InputSection
 import com.example.app_translate.ui.components.LanguagePickerDialog
 import com.example.app_translate.ui.components.OutputSection
@@ -45,7 +42,7 @@ import java.util.Locale
 fun TranslatorScreen(
     tts: TextToSpeech?,
     ttsReady: () -> Boolean,
-    viewModel: TranslatorViewModel = viewModel()
+    viewModel: TranslatorViewModel
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -57,14 +54,10 @@ fun TranslatorScreen(
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val spoken =
-            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (spoken != null) {
-            viewModel.onInputChanged(spoken)
-        }
+        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (spoken != null) viewModel.onInputChanged(spoken)
     }
 
-    // --- Helper Functions ---
     fun speakText(text: String, langCode: String) {
         if (!ttsReady() || text.isBlank()) return
         val locale = when (langCode) {
@@ -94,10 +87,7 @@ fun TranslatorScreen(
 
     fun startVoice() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(
-                RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-            )
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, uiState.sourceLang.code)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Bicara sekarang...")
         }
@@ -108,7 +98,6 @@ fun TranslatorScreen(
         }
     }
 
-    // --- Dialogs ---
     if (showSourcePicker) {
         LanguagePickerDialog(
             title = "Pilih Bahasa Sumber",
@@ -126,12 +115,10 @@ fun TranslatorScreen(
         )
     }
 
-    // --- UI Layout ---
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    // ✅ DIUPDATE: tambah case "dialogue"
                     val title = when (currentTab) {
                         "translate" -> "Translator"
                         "camera"    -> "Camera Scan"
@@ -140,15 +127,10 @@ fun TranslatorScreen(
                     }
                     Text(title, fontWeight = FontWeight.Bold, color = PurpleColor)
                 },
-                // ✅ BARU: Tombol clear chat di TopBar khusus tab dialogue
                 actions = {
                     if (currentTab == "dialogue" && uiState.dialogueMessages.isNotEmpty()) {
                         IconButton(onClick = { viewModel.clearDialogue() }) {
-                            Icon(
-                                Icons.Default.DeleteSweep,
-                                contentDescription = "Hapus Chat",
-                                tint = Color.Red
-                            )
+                            Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Chat", tint = Color.Red)
                         }
                     }
                 },
@@ -157,7 +139,6 @@ fun TranslatorScreen(
         },
         bottomBar = {
             NavigationBar(containerColor = WhiteColor, tonalElevation = 0.dp) {
-                // Tab Translate
                 NavigationBarItem(
                     selected = currentTab == "translate",
                     onClick = { currentTab = "translate" },
@@ -168,7 +149,6 @@ fun TranslatorScreen(
                         indicatorColor = LightPurpleColor
                     )
                 )
-                // ✅ BARU: Tab Dialogue
                 NavigationBarItem(
                     selected = currentTab == "dialogue",
                     onClick = { currentTab = "dialogue" },
@@ -179,7 +159,6 @@ fun TranslatorScreen(
                         indicatorColor = LightPurpleColor
                     )
                 )
-                // Tab Camera
                 NavigationBarItem(
                     selected = currentTab == "camera",
                     onClick = { currentTab = "camera" },
@@ -190,7 +169,6 @@ fun TranslatorScreen(
                         indicatorColor = LightPurpleColor
                     )
                 )
-                // Tab History
                 NavigationBarItem(
                     selected = currentTab == "history",
                     onClick = { currentTab = "history" },
@@ -204,7 +182,6 @@ fun TranslatorScreen(
             }
         },
         floatingActionButton = {
-            // Mic hanya muncul di tab translate
             if (currentTab == "translate") {
                 FloatingActionButton(
                     onClick = { startVoice() },
@@ -212,11 +189,7 @@ fun TranslatorScreen(
                     contentColor = WhiteColor,
                     shape = CircleShape
                 ) {
-                    Icon(
-                        Icons.Default.Mic,
-                        contentDescription = null,
-                        modifier = Modifier.size(30.dp)
-                    )
+                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(30.dp))
                 }
             }
         },
@@ -241,37 +214,21 @@ fun TranslatorScreen(
                             shadowElevation = 2.dp
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .padding(8.dp)
-                                    .fillMaxWidth(),
+                                modifier = Modifier.padding(8.dp).fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TextButton(onClick = { showSourcePicker = true }) {
-                                    Text(
-                                        uiState.sourceLang.name,
-                                        color = PurpleColor,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    Text(uiState.sourceLang.name, color = PurpleColor, fontWeight = FontWeight.Medium)
                                 }
                                 IconButton(
                                     onClick = { viewModel.onSwapLanguages() },
-                                    modifier = Modifier
-                                        .clip(CircleShape)
-                                        .background(LightPurpleColor)
+                                    modifier = Modifier.clip(CircleShape).background(LightPurpleColor)
                                 ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.CompareArrows,
-                                        null,
-                                        tint = PurpleColor
-                                    )
+                                    Icon(Icons.AutoMirrored.Filled.CompareArrows, null, tint = PurpleColor)
                                 }
                                 TextButton(onClick = { showTargetPicker = true }) {
-                                    Text(
-                                        uiState.targetLang.name,
-                                        color = PurpleColor,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                                    Text(uiState.targetLang.name, color = PurpleColor, fontWeight = FontWeight.Medium)
                                 }
                             }
                         }
@@ -289,26 +246,19 @@ fun TranslatorScreen(
                                 InputSection(
                                     inputText = uiState.inputText,
                                     onInputChanged = { viewModel.onInputChanged(it) },
-                                    onSpeak = {
-                                        speakText(uiState.inputText, uiState.sourceLang.code)
-                                    },
+                                    onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
                                     onCopy = { copyText(uiState.inputText) }
                                 )
                             }
                         }
 
-                        // Detected Language Suggestion
+                        // Detected Language
                         if (uiState.detectedLanguage != null) {
                             TextButton(
                                 onClick = { viewModel.applyDetectedLanguage() },
-                                modifier = Modifier
-                                    .align(Alignment.Start)
-                                    .padding(horizontal = 8.dp)
+                                modifier = Modifier.align(Alignment.Start).padding(horizontal = 8.dp)
                             ) {
-                                Text(
-                                    "Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?",
-                                    color = PurpleColor
-                                )
+                                Text("Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?", color = PurpleColor)
                             }
                         } else {
                             Spacer(modifier = Modifier.height(16.dp))
@@ -326,9 +276,7 @@ fun TranslatorScreen(
                                     outputText = uiState.outputText,
                                     isLoading = uiState.isLoading,
                                     isError = uiState.isError,
-                                    onSpeak = {
-                                        speakText(uiState.outputText, uiState.targetLang.code)
-                                    },
+                                    onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
                                     onCopy = { copyText(uiState.outputText) },
                                     onShare = { shareText(uiState.outputText) }
                                 )
@@ -338,13 +286,12 @@ fun TranslatorScreen(
                     }
                 }
 
-                // ✅ BARU: Tab Dialogue
                 "dialogue" -> {
-                    DialogueScreen(viewModel = viewModel)
+                    DialogueScreen(tts = tts, ttsReady = ttsReady, viewModel = viewModel)
                 }
 
                 "camera" -> {
-                    CameraScreen(viewModel = viewModel)
+                    CameraScreen(tts = tts, ttsReady = ttsReady, viewModel = viewModel)
                 }
 
                 "history" -> {

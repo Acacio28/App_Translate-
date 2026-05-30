@@ -1,94 +1,48 @@
 package com.example.app_translate
 
-import TranslatorScreen
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import com.example.app_translate.ui.components.BottomNavigationBar
-import com.example.app_translate.ui.screen.DialogueScreen
+import androidx.lifecycle.ViewModelProvider
 import com.example.app_translate.ui.screen.TranslatorScreen
 import com.example.app_translate.ui.theme.App_TranslateTheme
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import java.util.Locale
 
-
 class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
 
     private var tts: TextToSpeech? = null
     private var ttsReady = false
+    private lateinit var translatorViewModel: TranslatorViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Inisialisasi TTS sebelum setContent
         tts = TextToSpeech(this, this)
-
+        translatorViewModel = TranslatorViewModel(application)
         enableEdgeToEdge()
 
         setContent {
             App_TranslateTheme {
-                // Estado hodi jere navegasaun entre screens
-                var currentRoute by remember { mutableStateOf("translate") }
-
-                Scaffold(
-                    bottomBar = {
-                        BottomNavigationBar(
-                            currentRoute = currentRoute,
-                            onItemSelected = { route ->
-                                currentRoute = route
-                            }
-                        )
-                    }
-                ) { innerPadding ->
-                    Box(modifier = Modifier.padding(innerPadding)) {
-                        when (currentRoute) {
-                            "translate" -> {
-                                TranslatorScreen(
-                                    tts = tts,
-                                    ttsReady = { ttsReady }
-                                )
-                            }
-                            "dialogue" -> {
-                                // HADIA IHA NE'E: Pasa parameter tts ba DialogueScreen
-                                DialogueScreen(
-                                    tts = tts,
-                                    ttsReady = { ttsReady }
-                                )
-                            }
-                            // Ita bele aumenta "history" ka "settings" iha futuru
-                            else -> {
-                                TranslatorScreen(
-                                    tts = tts,
-                                    ttsReady = { ttsReady }
-                                )
-                            }
-                        }
-                    }
-                }
+                TranslatorScreen(
+                    tts = tts,
+                    ttsReady = { ttsReady },
+                    viewModel = translatorViewModel
+                )
             }
         }
     }
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            // Set bahasa default agar tidak error saat pertama kali digunakan
             tts?.language = Locale.US
             ttsReady = true
         }
     }
 
     override fun onDestroy() {
-        // Penting untuk mencegah memory leak yang bisa bikin crash saat app ditutup
         tts?.stop()
         tts?.shutdown()
         super.onDestroy()
