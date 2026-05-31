@@ -10,27 +10,30 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.automirrored.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.app_translate.ui.components.InputSection
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app_translate.ui.components.LanguagePickerDialog
-import com.example.app_translate.ui.components.OutputSection
 import com.example.app_translate.ui.theme.LightPurpleColor
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.ui.theme.WhiteColor
@@ -42,7 +45,7 @@ import java.util.Locale
 fun TranslatorScreen(
     tts: TextToSpeech?,
     ttsReady: () -> Boolean,
-    viewModel: TranslatorViewModel
+    viewModel: TranslatorViewModel = viewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -50,12 +53,22 @@ fun TranslatorScreen(
     var currentTab by remember { mutableStateOf("translate") }
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
+    var showAlternatives by remember { mutableStateOf(false) }
+
+    // Undo/Redo stack sederhana
+    var undoStack by remember { mutableStateOf(listOf<String>()) }
+    var redoStack by remember { mutableStateOf(listOf<String>()) }
 
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (spoken != null) viewModel.onInputChanged(spoken)
+        val spoken =
+            result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (spoken != null) {
+            undoStack = undoStack + uiState.inputText
+            redoStack = emptyList()
+            viewModel.onInputChanged(spoken)
+        }
     }
 
     fun speakText(text: String, langCode: String) {
@@ -91,13 +104,35 @@ fun TranslatorScreen(
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, uiState.sourceLang.code)
             putExtra(RecognizerIntent.EXTRA_PROMPT, "Bicara sekarang...")
         }
-        try {
-            voiceLauncher.launch(intent)
-        } catch (e: Exception) {
-            Toast.makeText(context, "Voice input tidak tersedia", Toast.LENGTH_SHORT).show()
+        try { voiceLauncher.launch(intent) }
+        catch (e: Exception) { Toast.makeText(context, "Voice input tidak tersedia", Toast.LENGTH_SHORT).show() }
+    }
+
+    fun onInputChangedWithHistory(newText: String) {
+        undoStack = undoStack + uiState.inputText
+        redoStack = emptyList()
+        viewModel.onInputChanged(newText)
+    }
+
+    fun undo() {
+        if (undoStack.isNotEmpty()) {
+            redoStack = redoStack + uiState.inputText
+            val prev = undoStack.last()
+            undoStack = undoStack.dropLast(1)
+            viewModel.onInputChanged(prev)
         }
     }
 
+    fun redo() {
+        if (redoStack.isNotEmpty()) {
+            undoStack = undoStack + uiState.inputText
+            val next = redoStack.last()
+            redoStack = redoStack.dropLast(1)
+            viewModel.onInputChanged(next)
+        }
+    }
+
+    // --- Dialogs ---
     if (showSourcePicker) {
         LanguagePickerDialog(
             title = "Pilih Bahasa Sumber",
@@ -116,27 +151,6 @@ fun TranslatorScreen(
     }
 
     Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    val title = when (currentTab) {
-                        "translate" -> "Translator"
-                        "camera"    -> "Camera Scan"
-                        "dialogue"  -> "Dialogue"
-                        else        -> "History"
-                    }
-                    Text(title, fontWeight = FontWeight.Bold, color = PurpleColor)
-                },
-                actions = {
-                    if (currentTab == "dialogue" && uiState.dialogueMessages.isNotEmpty()) {
-                        IconButton(onClick = { viewModel.clearDialogue() }) {
-                            Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Chat", tint = Color.Red)
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = WhiteColor)
-            )
-        },
         bottomBar = {
             NavigationBar(containerColor = WhiteColor, tonalElevation = 0.dp) {
                 NavigationBarItem(
@@ -144,16 +158,6 @@ fun TranslatorScreen(
                     onClick = { currentTab = "translate" },
                     icon = { Icon(Icons.Default.Translate, null) },
                     label = { Text("Translate") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = PurpleColor,
-                        indicatorColor = LightPurpleColor
-                    )
-                )
-                NavigationBarItem(
-                    selected = currentTab == "dialogue",
-                    onClick = { currentTab = "dialogue" },
-                    icon = { Icon(Icons.Default.Chat, null) },
-                    label = { Text("Dialogue") },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = PurpleColor,
                         indicatorColor = LightPurpleColor
@@ -180,20 +184,7 @@ fun TranslatorScreen(
                     )
                 )
             }
-        },
-        floatingActionButton = {
-            if (currentTab == "translate") {
-                FloatingActionButton(
-                    onClick = { startVoice() },
-                    containerColor = PurpleColor,
-                    contentColor = WhiteColor,
-                    shape = CircleShape
-                ) {
-                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(30.dp))
-                }
-            }
-        },
-        floatingActionButtonPosition = FabPosition.Center
+        }
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (currentTab) {
@@ -201,97 +192,281 @@ fun TranslatorScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFFF8F9FA))
+                            .background(Color.White)
                             .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Language Selector
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            color = WhiteColor,
-                            shadowElevation = 2.dp
+                        // ── INPUT AREA ──────────────────────────────────────
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(8.dp).fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceEvenly,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                TextButton(onClick = { showSourcePicker = true }) {
-                                    Text(uiState.sourceLang.name, color = PurpleColor, fontWeight = FontWeight.Medium)
-                                }
-                                IconButton(
-                                    onClick = { viewModel.onSwapLanguages() },
-                                    modifier = Modifier.clip(CircleShape).background(LightPurpleColor)
+                            // Deteksi bahasa
+                            if (uiState.detectedLanguage != null) {
+                                TextButton(
+                                    onClick = { viewModel.applyDetectedLanguage() },
+                                    contentPadding = PaddingValues(0.dp)
                                 ) {
-                                    Icon(Icons.AutoMirrored.Filled.CompareArrows, null, tint = PurpleColor)
-                                }
-                                TextButton(onClick = { showTargetPicker = true }) {
-                                    Text(uiState.targetLang.name, color = PurpleColor, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        "Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?",
+                                        color = PurpleColor,
+                                        fontSize = 13.sp
+                                    )
                                 }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Input Section
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = WhiteColor),
-                            elevation = CardDefaults.cardElevation(2.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                InputSection(
-                                    inputText = uiState.inputText,
-                                    onInputChanged = { viewModel.onInputChanged(it) },
-                                    onSpeak = { speakText(uiState.inputText, uiState.sourceLang.code) },
-                                    onCopy = { copyText(uiState.inputText) }
+                            // Text field input (minimal, tidak pakai box)
+                            TextField(
+                                value = uiState.inputText,
+                                onValueChange = { onInputChangedWithHistory(it) },
+                                placeholder = {
+                                    Text(
+                                        "Teks",
+                                        fontSize = 24.sp,
+                                        color = Color(0xFFAAAAAA)
+                                    )
+                                },
+                                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 24.sp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 150.dp),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
                                 )
-                            }
+                            )
                         }
 
-                        // Detected Language
-                        if (uiState.detectedLanguage != null) {
-                            TextButton(
-                                onClick = { viewModel.applyDetectedLanguage() },
-                                modifier = Modifier.align(Alignment.Start).padding(horizontal = 8.dp)
+                        // ── INPUT TOOLBAR ────────────────────────────────────
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Speaker
+                            IconButton(onClick = { speakText(uiState.inputText, uiState.sourceLang.code) }) {
+                                Icon(Icons.Default.VolumeUp, null, tint = Color(0xFF444444))
+                            }
+                            // Undo
+                            IconButton(
+                                onClick = { undo() },
+                                enabled = undoStack.isNotEmpty()
                             ) {
-                                Text("Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?", color = PurpleColor)
+                                Icon(
+                                    Icons.AutoMirrored.Filled.Undo,
+                                    null,
+                                    tint = if (undoStack.isNotEmpty()) Color(0xFF444444) else Color(0xFFCCCCCC)
+                                )
                             }
-                        } else {
-                            Spacer(modifier = Modifier.height(16.dp))
+                            // Redo
+                            IconButton(
+                                onClick = { redo() },
+                                enabled = redoStack.isNotEmpty()
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.Redo,
+                                    null,
+                                    tint = if (redoStack.isNotEmpty()) Color(0xFF444444) else Color(0xFFCCCCCC)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            // Folder/File (placeholder)
+                            IconButton(onClick = { }) {
+                                Icon(Icons.Default.FolderOpen, null, tint = Color(0xFF444444))
+                            }
+                            // Camera — pindah ke tab kamera
+                            IconButton(onClick = { currentTab = "camera" }) {
+                                Icon(Icons.Default.PhotoCamera, null, tint = Color(0xFF444444))
+                            }
+                            // Mic
+                            IconButton(onClick = { startVoice() }) {
+                                Icon(Icons.Default.Mic, null, tint = Color(0xFF444444))
+                            }
                         }
 
-                        // Output Section
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = WhiteColor),
-                            elevation = CardDefaults.cardElevation(2.dp)
+                        HorizontalDivider(color = Color(0xFFE0E0E0))
+
+                        // ── OUTPUT AREA ──────────────────────────────────────
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                OutputSection(
-                                    outputText = uiState.outputText,
-                                    isLoading = uiState.isLoading,
-                                    isError = uiState.isError,
-                                    onSpeak = { speakText(uiState.outputText, uiState.targetLang.code) },
-                                    onCopy = { copyText(uiState.outputText) },
-                                    onShare = { shareText(uiState.outputText) }
+                            if (uiState.isLoading) {
+                                CircularProgressIndicator(
+                                    color = PurpleColor,
+                                    modifier = Modifier
+                                        .padding(vertical = 24.dp)
+                                        .size(28.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = if (uiState.isError) "Terjadi kesalahan..." else uiState.outputText,
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = if (uiState.isError) Color.Red else PurpleColor,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .defaultMinSize(minHeight = 150.dp)
+                                        .padding(vertical = 8.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(80.dp))
+
+                        // ── OUTPUT TOOLBAR ────────────────────────────────────
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Speaker output
+                            IconButton(onClick = { speakText(uiState.outputText, uiState.targetLang.code) }) {
+                                Icon(Icons.Default.VolumeUp, null, tint = Color(0xFF444444))
+                            }
+
+                            // Tombol Alternatif (highlight)
+                            if (uiState.outputText.isNotBlank() && !uiState.isLoading) {
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = LightPurpleColor,
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp)
+                                        .clickable { showAlternatives = !showAlternatives }
+                                ) {
+                                    Text(
+                                        "Alternatif",
+                                        color = PurpleColor,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            // Bookmark
+                            IconButton(onClick = { }) {
+                                Icon(Icons.Default.BookmarkBorder, null, tint = Color(0xFF444444))
+                            }
+                            // Share
+                            IconButton(onClick = { shareText(uiState.outputText) }) {
+                                Icon(Icons.Default.Share, null, tint = Color(0xFF444444))
+                            }
+                            // Copy
+                            IconButton(onClick = { copyText(uiState.outputText) }) {
+                                Icon(Icons.Default.ContentCopy, null, tint = Color(0xFF444444))
+                            }
+                        }
+
+                        // ── PANEL ALTERNATIF ──────────────────────────────────
+                        if (showAlternatives && uiState.outputText.isNotBlank()) {
+                            HorizontalDivider(color = Color(0xFFE0E0E0))
+                            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                                // Tab Kata / Kalimat
+                                Row(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = LightPurpleColor
+                                    ) {
+                                        Text(
+                                            "Kata",
+                                            color = PurpleColor,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(50),
+                                        color = Color.Transparent
+                                    ) {
+                                        Text(
+                                            "Kalimat",
+                                            color = Color(0xFF666666),
+                                            fontSize = 13.sp,
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                // Contoh alternatif statis
+                                listOf("Hi...", "Good...", "${uiState.outputText}...").forEach { alt ->
+                                    Text(
+                                        text = alt,
+                                        fontSize = 16.sp,
+                                        color = Color(0xFF333333),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { viewModel.onInputChanged(alt.removeSuffix("...")) }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    )
+                                    HorizontalDivider(color = Color(0xFFF0F0F0))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        HorizontalDivider(color = Color(0xFFE0E0E0))
+
+                        // ── LANGUAGE BAR (BAWAH) ──────────────────────────────
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF333333))
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Bahasa sumber
+                            TextButton(
+                                onClick = { showSourcePicker = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    uiState.sourceLang.name,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 15.sp
+                                )
+                            }
+                            // Swap
+                            IconButton(onClick = { viewModel.onSwapLanguages() }) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.CompareArrows,
+                                    null,
+                                    tint = Color.White
+                                )
+                            }
+                            // Bahasa tujuan
+                            TextButton(
+                                onClick = { showTargetPicker = true },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    uiState.targetLang.name,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 15.sp
+                                )
+                            }
+                        }
                     }
                 }
 
-                "dialogue" -> {
-                    DialogueScreen(tts = tts, ttsReady = ttsReady, viewModel = viewModel)
-                }
-
                 "camera" -> {
-                    CameraScreen(tts = tts, ttsReady = ttsReady, viewModel = viewModel)
+                    CameraScreen(
+                        viewModel = viewModel,
+                        tts = tts,
+                        ttsReady = ttsReady
+                    )
                 }
 
                 "history" -> {
