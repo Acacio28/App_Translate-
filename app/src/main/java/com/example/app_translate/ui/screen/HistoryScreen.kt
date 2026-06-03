@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.*
@@ -27,14 +28,29 @@ import com.example.app_translate.ui.theme.WhiteColor
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    viewModel: TranslatorViewModel
+    viewModel: TranslatorViewModel,
+    onBack: (() -> Unit)? = null   // ← TAMBAH INI
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Riwayat Terjemahan", fontWeight = FontWeight.Bold) },
+                // ── TOMBOL BACK ──────────────────────────────────────────────
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color(0xFF444444)
+                            )
+                        }
+                    }
+                },
+                title = {
+                    Text("Riwayat Terjemahan", fontWeight = FontWeight.Bold)
+                },
                 actions = {
                     if (uiState.historyList.isNotEmpty()) {
                         IconButton(onClick = { viewModel.clearHistory() }) {

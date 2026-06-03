@@ -5,8 +5,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.app_translate.data.local.AppDatabase
 import com.example.app_translate.data.local.HistoryEntity
+import com.example.app_translate.data.model.DictionaryEntry
 import com.example.app_translate.data.model.Language
 import com.example.app_translate.data.model.languages
+import com.example.app_translate.data.repository.DictionaryRepository
 import com.example.app_translate.data.repository.TranslateRepository
 import com.google.mlkit.nl.languageid.LanguageIdentification
 import kotlinx.coroutines.Job
@@ -31,12 +33,17 @@ data class TranslatorUiState(
     val isError: Boolean = false,
     val detectedLanguage: Language? = null,
     val historyList: List<HistoryEntity> = emptyList(),
-    val dialogueMessages: List<DialogueMessage> = emptyList()
+    val dialogueMessages: List<DialogueMessage> = emptyList(),
+    // --- Dictionary State ---
+    val dictionaryResult: DictionaryEntry? = null,
+    val isDictionaryLoading: Boolean = false,
+    val isDictionaryError: Boolean = false
 )
 
 class TranslatorViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TranslateRepository()
+    private val dictionaryRepository = DictionaryRepository()
     private val db = AppDatabase.getDatabase(application)
     private val historyDao = db.historyDao()
 
@@ -54,6 +61,7 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    // --- Translate Functions ---
     fun onInputChanged(text: String) {
         _uiState.update { it.copy(inputText = text) }
         triggerTranslate()
@@ -88,11 +96,69 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
         triggerTranslate()
     }
 
+    private fun triggerTranslate() {
+        val state = _uiState.value
+        if (state.inputText.isBlank()) {
+            _uiState.update { it.copy(outputText = "", isLoading = false, detectedLanguage = null) }
+            return
+        }
+        translateJob?.cancel()
+        translateJob = viewModelScope.launch {
+            delay(600)
+            _uiState.update { it.copy(isLoading = true, isError = false) }
+            languageIdentifier.identifyLanguage(state.inputText)
+                .addOnSuccessListener { code ->
+                    val detected = languages.find { it.code == code }
+                    if (detected != null && code != _uiState.value.sourceLang.code) {
+                        _uiState.update { it.copy(detectedLanguage = detected) }
+                    } else {
+                        _uiState.update { it.copy(detectedLanguage = null) }
+                    }
+                    performTranslation(_uiState.value)
+                }
+                .addOnFailureListener { performTranslation(_uiState.value) }
+        }
+    }
+
+    private fun performTranslation(state: TranslatorUiState) {
+        viewModelScope.launch {
+            val result = repository.translate(
+                state.inputText,
+                state.sourceLang.code,
+                state.targetLang.code
+            )
+            result.fold(
+                onSuccess = { translated ->
+                    _uiState.update { it.copy(outputText = translated, isLoading = false) }
+                    addToHistory(
+                        state.inputText,
+                        translated,
+                        state.sourceLang.name,
+                        state.targetLang.name
+                    )
+                },
+                onFailure = {
+                    _uiState.update {
+                        it.copy(
+                            outputText = "Gagal menerjemahkan.",
+                            isLoading = false,
+                            isError = true
+                        )
+                    }
+                }
+            )
+        }
+    }
+
     // --- Dialogue Functions ---
     fun addDialogueMessage(text: String, isFromMe: Boolean) {
         val state = _uiState.value
         viewModelScope.launch {
-            val result = repository.translate(text, state.sourceLang.code, state.targetLang.code)
+            val result = repository.translate(
+                text,
+                state.sourceLang.code,
+                state.targetLang.code
+            )
             result.fold(
                 onSuccess = { translated ->
                     val message = DialogueMessage(
@@ -132,41 +198,44 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch { historyDao.clearAll() }
     }
 
-    private fun triggerTranslate() {
-        val state = _uiState.value
-        if (state.inputText.isBlank()) {
-            _uiState.update { it.copy(outputText = "", isLoading = false, detectedLanguage = null) }
-            return
-        }
-        translateJob?.cancel()
-        translateJob = viewModelScope.launch {
-            delay(600)
-            _uiState.update { it.copy(isLoading = true, isError = false) }
-            languageIdentifier.identifyLanguage(state.inputText)
-                .addOnSuccessListener { code ->
-                    val detected = languages.find { it.code == code }
-                    if (detected != null && code != _uiState.value.sourceLang.code) {
-                        _uiState.update { it.copy(detectedLanguage = detected) }
-                    } else {
-                        _uiState.update { it.copy(detectedLanguage = null) }
+    // --- Dictionary Functions ---
+    fun lookupWord(word: String) {
+        if (word.isBlank()) return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isDictionaryLoading = true,
+                    isDictionaryError = false,
+                    dictionaryResult = null
+                )
+            }
+            val result = dictionaryRepository.lookup(word)
+            result.fold(
+                onSuccess = { entry ->
+                    _uiState.update {
+                        it.copy(
+                            dictionaryResult = entry,
+                            isDictionaryLoading = false
+                        )
                     }
-                    performTranslation(_uiState.value)
+                },
+                onFailure = {
+                    _uiState.update {
+                        it.copy(
+                            isDictionaryError = true,
+                            isDictionaryLoading = false
+                        )
+                    }
                 }
-                .addOnFailureListener { performTranslation(_uiState.value) }
+            )
         }
     }
 
-    private fun performTranslation(state: TranslatorUiState) {
-        viewModelScope.launch {
-            val result = repository.translate(state.inputText, state.sourceLang.code, state.targetLang.code)
-            result.fold(
-                onSuccess = { translated ->
-                    _uiState.update { it.copy(outputText = translated, isLoading = false) }
-                    addToHistory(state.inputText, translated, state.sourceLang.name, state.targetLang.name)
-                },
-                onFailure = {
-                    _uiState.update { it.copy(outputText = "Gagal menerjemahkan.", isLoading = false, isError = true) }
-                }
+    fun clearDictionaryResult() {
+        _uiState.update {
+            it.copy(
+                dictionaryResult = null,
+                isDictionaryError = false
             )
         }
     }

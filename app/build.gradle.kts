@@ -16,6 +16,8 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+        val anthropicKey = project.findProperty("ANTHROPIC_API_KEY")?.toString() ?: ""
+        buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -39,6 +41,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

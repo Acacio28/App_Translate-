@@ -5,7 +5,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.provider.MediaStore
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.widget.Toast
@@ -35,10 +34,12 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.app_translate.data.model.languages
 import com.example.app_translate.ui.components.LanguagePickerDialog
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import com.google.mlkit.vision.common.InputImage
@@ -46,10 +47,10 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.Locale
 
-// ── Warna DeepL ──────────────────────────────────────────────────────────────
-private val DeepLBlue   = Color(0xFF1A56DB)
-private val DeepLBlueBg = Color(0xFFDEEAFF)
-private val DeepLGrayBg = Color(0xFFF0F0F0)
+// ── Warna ────────────────────────────────────────────────────────────────────
+private val DeepLBlue      = Color(0xFF1A56DB)
+private val DeepLBlueBg    = Color(0xFFDEEAFF)
+private val DeepLGrayBg    = Color(0xFFF0F0F0)
 private val DeepLDarkBar   = Color(0xFF4A4A4A)
 private val DeepLTextBlack = Color(0xFF1A1A1A)
 private val DeepLTextGray  = Color(0xFFAAAAAA)
@@ -65,7 +66,7 @@ fun TranslatorScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var currentTab     by remember { mutableStateOf("translate") }
+    var currentTab       by remember { mutableStateOf("translate") }
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
     var showAlternatives by remember { mutableStateOf(false) }
@@ -74,12 +75,9 @@ fun TranslatorScreen(
     var undoStack by remember { mutableStateOf(listOf<String>()) }
     var redoStack by remember { mutableStateOf(listOf<String>()) }
 
-    // ML Kit text recognizer untuk gallery image
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
     // ── Launchers ─────────────────────────────────────────────────────────────
-
-    // Voice
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -93,7 +91,6 @@ fun TranslatorScreen(
         }
     }
 
-    // Gallery — ambil gambar lalu OCR
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -121,7 +118,6 @@ fun TranslatorScreen(
     }
 
     // ── Helper functions ──────────────────────────────────────────────────────
-
     fun speakText(text: String, langCode: String) {
         if (!ttsReady() || text.isBlank()) return
         val locale = when (langCode) {
@@ -169,14 +165,6 @@ fun TranslatorScreen(
         }
     }
 
-    fun openGallery() {
-        galleryLauncher.launch("image/*")
-    }
-
-    fun openCamera() {
-        currentTab = "camera"
-    }
-
     fun onInputWithHistory(newText: String) {
         undoStack = undoStack + uiState.inputText
         redoStack = emptyList()
@@ -219,8 +207,20 @@ fun TranslatorScreen(
         )
     }
 
+    var writeLang by remember { mutableStateOf(languages.first { it.code == "en" }) }
+    var showWriteLangPicker by remember { mutableStateOf(false) }
+    if (showWriteLangPicker) {
+        LanguagePickerDialog(
+            title = "Pilih Bahasa",
+            currentLang = writeLang,
+            onLanguageSelected = { writeLang = it; showWriteLangPicker = false },
+            onDismiss = { showWriteLangPicker = false }
+        )
+    }
+
     // ── ROOT ──────────────────────────────────────────────────────────────────
     when (currentTab) {
+
         "camera" -> {
             CameraScreen(
                 viewModel = viewModel,
@@ -229,11 +229,82 @@ fun TranslatorScreen(
                 onBack = { currentTab = "translate" }
             )
         }
+
         "history" -> {
-            HistoryScreen(viewModel = viewModel)
+            HistoryScreen(
+                viewModel = viewModel,
+                onBack = { currentTab = "translate" }
+            )
+        }
+
+        "dictionary" -> {
+            DictionaryScreen(
+                viewModel = viewModel,
+                onBack = { currentTab = "translate" }
+            )
+        }
+
+        "write" -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White)
+                    .statusBarsPadding()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(DeepLGrayBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Person, null, tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(DeepLGrayBg)
+                            .clickable { currentTab = "translate" }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Translate, null, tint = Color(0xFF888888), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Translator", color = Color(0xFF888888), fontSize = 14.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .border(1.5.dp, Color(0xFF7B61FF), RoundedCornerShape(50))
+                            .background(Color.White)
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF7B61FF), modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Write", color = Color(0xFF7B61FF), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(Icons.Default.Tune, null, tint = Color(0xFF888888), modifier = Modifier.size(24.dp))
+                }
+                WriteScreen(
+                    selectedLang = writeLang,
+                    onLangClick = { showWriteLangPicker = true }
+                )
+            }
         }
         else -> {
-            // ── TRANSLATE / WRITE TAB ─────────────────────────────────────────
+            // ── TRANSLATE TAB ─────────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -247,7 +318,6 @@ fun TranslatorScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Profil icon
                     Box(
                         modifier = Modifier
                             .size(36.dp)
@@ -257,36 +327,22 @@ fun TranslatorScreen(
                     ) {
                         Icon(Icons.Default.Person, null, tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
                     }
-
                     Spacer(modifier = Modifier.width(12.dp))
-
-                    // Pill Translator (aktif)
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .border(
-                                width = 1.5.dp,
-                                color = if (currentTab == "translate") DeepLBlue else Color.Transparent,
-                                shape = RoundedCornerShape(50)
-                            )
+                            .border(1.5.dp, DeepLBlue, RoundedCornerShape(50))
                             .background(Color.White)
                             .clickable { currentTab = "translate" }
                             .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Translate, null,
-                                tint = if (currentTab == "translate") DeepLBlue else Color(0xFF888888),
-                                modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.Translate, null, tint = DeepLBlue, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Translator",
-                                color = if (currentTab == "translate") DeepLBlue else Color(0xFF888888),
-                                fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text("Translator", color = DeepLBlue, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                     }
-
                     Spacer(modifier = Modifier.width(8.dp))
-
-                    // Pill Write
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
@@ -295,32 +351,25 @@ fun TranslatorScreen(
                             .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.AutoAwesome, null,
-                                tint = Color(0xFF888888), modifier = Modifier.size(16.dp))
+                            Icon(Icons.Default.AutoAwesome, null, tint = Color(0xFF888888), modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Write", color = Color(0xFF888888), fontSize = 14.sp)
                         }
                     }
-
                     Spacer(modifier = Modifier.weight(1f))
-
-                    // History icon
                     IconButton(onClick = { currentTab = "history" }) {
                         Icon(Icons.Default.History, null, tint = Color(0xFF888888), modifier = Modifier.size(24.dp))
                     }
-
-                    // Bookmark icon biru
-                    Icon(Icons.Default.Bookmark, null, tint = DeepLBlue,
-                        modifier = Modifier.size(26.dp))
+                    IconButton(onClick = { currentTab = "dictionary" }) {
+                        Icon(Icons.Default.MenuBook, null, tint = Color(0xFF888888), modifier = Modifier.size(24.dp))
+                    }
+                    Icon(Icons.Default.Bookmark, null, tint = DeepLBlue, modifier = Modifier.size(26.dp))
                 }
 
                 // ── KONTEN ────────────────────────────────────────────────────
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    // ── INPUT AREA ─────────────────────────────────────────────
+                Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+
+                    // INPUT AREA
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -342,7 +391,7 @@ fun TranslatorScreen(
                         )
                     }
 
-                    // Tombol Tempelkan — hanya saat input kosong
+                    // Tombol Tempelkan
                     if (uiState.inputText.isEmpty()) {
                         Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
                             Surface(
@@ -363,7 +412,7 @@ fun TranslatorScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // Deteksi bahasa hint
+                    // Deteksi bahasa
                     if (uiState.detectedLanguage != null) {
                         TextButton(
                             onClick = { viewModel.applyDetectedLanguage() },
@@ -374,12 +423,10 @@ fun TranslatorScreen(
                         }
                     }
 
-                    // ── INPUT TOOLBAR ──────────────────────────────────────────
+                    // INPUT TOOLBAR
                     if (uiState.inputText.isNotEmpty()) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(onClick = { speakText(uiState.inputText, uiState.sourceLang.code) }) {
@@ -396,21 +443,17 @@ fun TranslatorScreen(
                                     modifier = Modifier.size(22.dp))
                             }
                             Spacer(modifier = Modifier.weight(1f))
-                            // FOLDER → buka gallery + OCR
-                            IconButton(onClick = { openGallery() }) {
+                            IconButton(onClick = { galleryLauncher.launch("image/*") }) {
                                 Icon(Icons.Default.FolderOpen, null, tint = DeepLTextBlack, modifier = Modifier.size(22.dp))
                             }
-                            // KAMERA → pindah ke tab kamera
-                            IconButton(onClick = { openCamera() }) {
+                            IconButton(onClick = { currentTab = "camera" }) {
                                 Icon(Icons.Default.PhotoCamera, null, tint = DeepLTextBlack, modifier = Modifier.size(22.dp))
                             }
-                            // MIC
                             IconButton(onClick = { startVoice() }) {
                                 Icon(Icons.Default.Mic, null, tint = DeepLTextBlack, modifier = Modifier.size(22.dp))
                             }
                         }
                     } else {
-                        // Saat input kosong: undo/redo kecil
                         Row(modifier = Modifier.padding(horizontal = 8.dp)) {
                             IconButton(onClick = { undo() }) {
                                 Icon(Icons.AutoMirrored.Filled.Undo, null, tint = DeepLTextGray, modifier = Modifier.size(20.dp))
@@ -419,59 +462,38 @@ fun TranslatorScreen(
                                 Icon(Icons.AutoMirrored.Filled.Redo, null, tint = DeepLTextGray, modifier = Modifier.size(20.dp))
                             }
                         }
-
                         Spacer(modifier = Modifier.height(60.dp))
-
-                        // 3 icon bulat besar tengah bawah
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 24.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // FOLDER → gallery + OCR
                             Box(
-                                modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(CircleShape)
+                                modifier = Modifier.size(60.dp).clip(CircleShape)
                                     .background(DeepLGrayBg)
-                                    .clickable { openGallery() },
+                                    .clickable { galleryLauncher.launch("image/*") },
                                 contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.FolderOpen, null, tint = DeepLTextBlack, modifier = Modifier.size(26.dp))
-                            }
+                            ) { Icon(Icons.Default.FolderOpen, null, tint = DeepLTextBlack, modifier = Modifier.size(26.dp)) }
                             Spacer(modifier = Modifier.width(20.dp))
-                            // KAMERA → tab kamera
                             Box(
-                                modifier = Modifier
-                                    .size(68.dp)
-                                    .clip(CircleShape)
+                                modifier = Modifier.size(68.dp).clip(CircleShape)
                                     .background(DeepLGrayBg)
-                                    .clickable { openCamera() },
+                                    .clickable { currentTab = "camera" },
                                 contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.PhotoCamera, null, tint = DeepLTextBlack, modifier = Modifier.size(28.dp))
-                            }
+                            ) { Icon(Icons.Default.PhotoCamera, null, tint = DeepLTextBlack, modifier = Modifier.size(28.dp)) }
                             Spacer(modifier = Modifier.width(20.dp))
-                            // MIC
                             Box(
-                                modifier = Modifier
-                                    .size(60.dp)
-                                    .clip(CircleShape)
+                                modifier = Modifier.size(60.dp).clip(CircleShape)
                                     .background(DeepLGrayBg)
                                     .clickable { startVoice() },
                                 contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Mic, null, tint = DeepLTextBlack, modifier = Modifier.size(26.dp))
-                            }
+                            ) { Icon(Icons.Default.Mic, null, tint = DeepLTextBlack, modifier = Modifier.size(26.dp)) }
                         }
                     }
 
-                    // ── DIVIDER + OUTPUT ───────────────────────────────────────
+                    // OUTPUT
                     if (uiState.inputText.isNotEmpty()) {
                         HorizontalDivider(color = DeepLDivider, thickness = 1.dp)
-
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -479,10 +501,7 @@ fun TranslatorScreen(
                                 .padding(horizontal = 20.dp, vertical = 16.dp)
                         ) {
                             if (uiState.isLoading) {
-                                CircularProgressIndicator(
-                                    color = DeepLBlue, strokeWidth = 2.dp,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                                CircularProgressIndicator(color = DeepLBlue, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
                             } else {
                                 Text(
                                     text = if (uiState.isError) "Terjemahan gagal" else uiState.outputText,
@@ -492,19 +511,15 @@ fun TranslatorScreen(
                             }
                         }
 
-                        // ── OUTPUT TOOLBAR ─────────────────────────────────────
                         if (!uiState.isLoading && uiState.outputText.isNotBlank()) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 IconButton(onClick = { speakText(uiState.outputText, uiState.targetLang.code) }) {
                                     Icon(Icons.Default.VolumeUp, null, tint = DeepLTextBlack, modifier = Modifier.size(22.dp))
                                 }
                                 Spacer(modifier = Modifier.width(4.dp))
-                                // Chip Alternatif
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
                                     color = DeepLBlueBg,
@@ -529,14 +544,10 @@ fun TranslatorScreen(
                                 }
                             }
 
-                            // ── PANEL ALTERNATIF ───────────────────────────────
                             if (showAlternatives) {
                                 HorizontalDivider(color = DeepLDivider)
-                                // Tab Kata | Kalimat | X
                                 Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     listOf("kata" to "Kata", "kalimat" to "Kalimat").forEach { (key, label) ->
@@ -566,29 +577,17 @@ fun TranslatorScreen(
                                         Icon(Icons.Default.Close, null, tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
                                     }
                                 }
-
-                                // List alternatif
                                 val alts = if (alternativeTab == "kata")
                                     listOf("Hello,...", "Hi,...", "Hey,...")
                                 else
-                                    listOf(
-                                        "${uiState.outputText}...",
-                                        "Well, ${uiState.outputText.lowercase()}...",
-                                        "Actually, ${uiState.outputText.lowercase()}..."
-                                    )
+                                    listOf("${uiState.outputText}...", "Well, ${uiState.outputText.lowercase()}...", "Actually, ${uiState.outputText.lowercase()}...")
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     alts.forEach { alt ->
-                                        Text(
-                                            text = alt,
-                                            fontSize = 16.sp,
-                                            color = DeepLTextBlack,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
+                                        Text(text = alt, fontSize = 16.sp, color = DeepLTextBlack,
+                                            modifier = Modifier.fillMaxWidth()
                                                 .clickable { viewModel.onInputChanged(alt.removeSuffix("...")) }
-                                                .padding(horizontal = 20.dp, vertical = 14.dp)
-                                        )
-                                        HorizontalDivider(color = Color(0xFFF0F0F0),
-                                            modifier = Modifier.padding(horizontal = 16.dp))
+                                                .padding(horizontal = 20.dp, vertical = 14.dp))
+                                        HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
@@ -597,7 +596,7 @@ fun TranslatorScreen(
                     }
                 }
 
-                // ── LANGUAGE BAR (bawah) ──────────────────────────────────────
+                // LANGUAGE BAR
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -609,20 +608,11 @@ fun TranslatorScreen(
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = DeepLDarkBar,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { showSourcePicker = true }
+                        modifier = Modifier.weight(1f).clickable { showSourcePicker = true }
                     ) {
-                        Text(
-                            text = uiState.sourceLang.name,
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            modifier = Modifier
-                                .padding(vertical = 13.dp)
-                                .wrapContentWidth(Alignment.CenterHorizontally)
-                        )
+                        Text(uiState.sourceLang.name, color = Color.White, fontSize = 15.sp,
+                            modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally))
                     }
-
                     IconButton(
                         onClick = { viewModel.onSwapLanguages() },
                         modifier = Modifier.padding(horizontal = 8.dp)
@@ -630,25 +620,29 @@ fun TranslatorScreen(
                         Icon(Icons.AutoMirrored.Filled.CompareArrows, null,
                             tint = Color(0xFF444444), modifier = Modifier.size(24.dp))
                     }
-
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = DeepLDarkBar,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { showTargetPicker = true }
+                        modifier = Modifier.weight(1f).clickable { showTargetPicker = true }
                     ) {
-                        Text(
-                            text = uiState.targetLang.name,
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            modifier = Modifier
-                                .padding(vertical = 13.dp)
-                                .wrapContentWidth(Alignment.CenterHorizontally)
-                        )
+                        Text(uiState.targetLang.name, color = Color.White, fontSize = 15.sp,
+                            modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally))
                     }
                 }
             }
         }
     }
 }
+
+@Composable
+fun DictionaryScreen(viewModel: TranslatorViewModel, onBack: () -> Unit) {
+
+}
+
+
+//
+//@Composable
+//fun DictionaryScreen(viewModel: TranslatorViewModel, onBack: () -> Unit) {
+//
+//}
+//
