@@ -1,11 +1,5 @@
 package com.example.app_translate.ui.screen
 
-import android.app.Activity
-import android.content.Intent
-import android.speech.RecognizerIntent
-import android.speech.tts.TextToSpeech
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,8 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,156 +17,201 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.app_translate.ui.theme.*
-import com.example.app_translate.viewmodel.DialogueMessage
-import com.example.app_translate.viewmodel.TranslatorViewModel
-import java.util.Locale
+import com.example.app_translate.ui.theme.LightPurpleColor
+import com.example.app_translate.ui.theme.PurpleColor
+import com.example.app_translate.ui.theme.WhiteColor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
+data class ChatMessage(
+    val text: String,
+    val isUser: Boolean
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DialogueScreen(
-    tts: TextToSpeech?,
-    ttsReady: () -> Boolean,
-    viewModel: TranslatorViewModel
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+fun DialogueScreen() {
+    val messages = remember { mutableStateListOf<ChatMessage>() }
+    var inputText by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
-    val speakAI = { text: String, langCode: String ->
-        if (ttsReady() && text.isNotBlank()) {
-            tts?.language = Locale(langCode)
-            tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    // Ganti dengan Gemini API key kamu
+    val apiKey = "ISI_API_KEY_KAMU_DISINI"
+
+    suspend fun sendToGemini(userMessage: String): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+
+                val body = JSONObject().apply {
+                    put("contents", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("parts", JSONArray().apply {
+                                put(JSONObject().apply {
+                                    put("text", userMessage)
+                                })
+                            })
+                        })
+                    })
+                }
+
+                conn.outputStream.write(body.toString().toByteArray())
+
+                val response = conn.inputStream.bufferedReader().readText()
+                val json = JSONObject(response)
+                json.getJSONArray("candidates")
+                    .getJSONObject(0)
+                    .getJSONObject("content")
+                    .getJSONArray("parts")
+                    .getJSONObject(0)
+                    .getString("text")
+            } catch (e: Exception) {
+                "Error: ${e.message}"
+            }
         }
     }
 
-    val speechLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val spokenText = result.data
-                ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-                ?.get(0)
-            spokenText?.let { viewModel.addDialogueMessage(it, isFromMe = true) }
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text("Dialogue AI", fontWeight = FontWeight.Bold, color = PurpleColor)
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = WhiteColor)
+            )
+        },
+        bottomBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(WhiteColor)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Ketik pesan...") },
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PurpleColor,
+                        unfocusedBorderColor = Color.LightGray
+                    ),
+                    maxLines = 3
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                FloatingActionButton(
+                    onClick = {
+                        if (inputText.isNotBlank() && !isLoading) {
+                            val userMsg = inputText.trim()
+                            messages.add(ChatMessage(userMsg, isUser = true))
+                            inputText = ""
+                            isLoading = true
+                            scope.launch {
+                                val reply = sendToGemini(userMsg)
+                                messages.add(ChatMessage(reply, isUser = false))
+                                isLoading = false
+                                listState.animateScrollToItem(messages.size - 1)
+                            }
+                        }
+                    },
+                    containerColor = PurpleColor,
+                    shape = CircleShape,
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, null, tint = WhiteColor)
+                }
+            }
         }
-    }
-
-    LaunchedEffect(uiState.dialogueMessages.size) {
-        if (uiState.dialogueMessages.isNotEmpty()) {
-            val lastMsg = uiState.dialogueMessages.last()
-            speakAI(lastMsg.translatedText, lastMsg.targetLangCode)
-            listState.animateScrollToItem(uiState.dialogueMessages.size - 1)
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFFFBFBFE))
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = "AI Conversation",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            color = PurpleColor,
-            modifier = Modifier.padding(top = 16.dp)
-        )
-
-        Text(
-            text = "${uiState.sourceLang.name} ➔ ${uiState.targetLang.name}",
-            style = MaterialTheme.typography.bodySmall,
-            color = GrayColor
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
+    ) { innerPadding ->
         LazyColumn(
             state = listState,
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 80.dp)
+                .fillMaxSize()
+                .background(Color(0xFFF8F9FA))
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 16.dp)
         ) {
-            items(uiState.dialogueMessages) { message ->
-                DialogueItemAI(message, speakAI)
+            if (messages.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillParentMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🤖", fontSize = 48.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Tanya apa saja ke AI",
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            items(messages) { msg ->
+                ChatBubble(msg)
+            }
+
+            if (isLoading) {
+                item {
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
+                            color = WhiteColor,
+                            shadowElevation = 1.dp
+                        ) {
+                            Text(
+                                "...",
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                                fontSize = 20.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
             }
         }
-
-        FloatingActionButton(
-            onClick = {
-                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, uiState.sourceLang.code)
-                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Ko'alia agora...")
-                }
-                speechLauncher.launch(intent)
-            },
-            containerColor = PurpleColor,
-            contentColor = Color.White,
-            shape = CircleShape,
-            modifier = Modifier.size(72.dp)
-        ) {
-            Icon(Icons.Default.Mic, contentDescription = "Speak", modifier = Modifier.size(36.dp))
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Speak in ${uiState.sourceLang.name}", fontSize = 12.sp, color = GrayColor)
     }
 }
 
 @Composable
-fun DialogueItemAI(message: DialogueMessage, onSpeak: (String, String) -> Unit) {
-    Column(
+fun ChatBubble(message: ChatMessage) {
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.End
+        horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
     ) {
-        // Teks asli user
         Surface(
-            shape = RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp),
-            color = LightPurpleColor,
-            modifier = Modifier.padding(start = 40.dp)
+            shape = if (message.isUser)
+                RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp)
+            else
+                RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
+            color = if (message.isUser) PurpleColor else WhiteColor,
+            shadowElevation = 1.dp,
+            modifier = Modifier.widthIn(max = 280.dp)
         ) {
             Text(
-                text = message.originalText,
-                modifier = Modifier.padding(12.dp),
-                fontSize = 14.sp
+                text = message.text,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                color = if (message.isUser) WhiteColor else Color.Black,
+                fontSize = 15.sp
             )
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Hasil terjemahan AI
-        Surface(
-            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
-            color = DarkPurpleColor,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(end = 40.dp),
-            shadowElevation = 2.dp
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = "\" ${message.translatedText} \"",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
-                )
-                IconButton(
-                    onClick = { onSpeak(message.translatedText, message.targetLangCode) },
-                    modifier = Modifier
-                        .size(24.dp)
-                        .align(Alignment.End)
-                ) {
-                    Icon(
-                        Icons.Default.VolumeUp,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
         }
     }
 }

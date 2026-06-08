@@ -34,7 +34,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -47,7 +46,6 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.Locale
 
-// ── Warna ────────────────────────────────────────────────────────────────────
 private val DeepLBlue      = Color(0xFF1A56DB)
 private val DeepLBlueBg    = Color(0xFFDEEAFF)
 private val DeepLGrayBg    = Color(0xFFF0F0F0)
@@ -77,7 +75,6 @@ fun TranslatorScreen(
 
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
 
-    // ── Launchers ─────────────────────────────────────────────────────────────
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -117,7 +114,6 @@ fun TranslatorScreen(
         }
     }
 
-    // ── Helper functions ──────────────────────────────────────────────────────
     fun speakText(text: String, langCode: String) {
         if (!ttsReady() || text.isBlank()) return
         val locale = when (langCode) {
@@ -189,7 +185,6 @@ fun TranslatorScreen(
         }
     }
 
-    // ── Dialogs ───────────────────────────────────────────────────────────────
     if (showSourcePicker) {
         LanguagePickerDialog(
             title = "Pilih Bahasa Sumber",
@@ -218,7 +213,6 @@ fun TranslatorScreen(
         )
     }
 
-    // ── ROOT ──────────────────────────────────────────────────────────────────
     when (currentTab) {
 
         "camera" -> {
@@ -303,15 +297,15 @@ fun TranslatorScreen(
                 )
             }
         }
+
         else -> {
-            // ── TRANSLATE TAB ─────────────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.White)
                     .statusBarsPadding()
             ) {
-                // ── TOP BAR ───────────────────────────────────────────────────
+                // TOP BAR
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -366,7 +360,7 @@ fun TranslatorScreen(
                     Icon(Icons.Default.Bookmark, null, tint = DeepLBlue, modifier = Modifier.size(26.dp))
                 }
 
-                // ── KONTEN ────────────────────────────────────────────────────
+                // KONTEN
                 Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
 
                     // INPUT AREA
@@ -391,7 +385,6 @@ fun TranslatorScreen(
                         )
                     }
 
-                    // Tombol Tempelkan
                     if (uiState.inputText.isEmpty()) {
                         Row(modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
                             Surface(
@@ -412,18 +405,18 @@ fun TranslatorScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // Deteksi bahasa
                     if (uiState.detectedLanguage != null) {
                         TextButton(
                             onClick = { viewModel.applyDetectedLanguage() },
                             modifier = Modifier.padding(horizontal = 16.dp)
                         ) {
-                            Text("Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?",
-                                color = DeepLBlue, fontSize = 13.sp)
+                            Text(
+                                "Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?",
+                                color = DeepLBlue, fontSize = 13.sp
+                            )
                         }
                     }
 
-                    // INPUT TOOLBAR
                     if (uiState.inputText.isNotEmpty()) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -528,9 +521,11 @@ fun TranslatorScreen(
                                         if (showAlternatives) alternativeTab = "kata"
                                     }
                                 ) {
-                                    Text("Alternatif", color = DeepLBlue, fontSize = 14.sp,
+                                    Text(
+                                        "Alternatif", color = DeepLBlue, fontSize = 14.sp,
                                         fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
                                 }
                                 Spacer(modifier = Modifier.weight(1f))
                                 IconButton(onClick = { }) {
@@ -560,14 +555,18 @@ fun TranslatorScreen(
                                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Icon(Icons.Default.List, null,
+                                                Icon(
+                                                    Icons.Default.List, null,
                                                     tint = if (alternativeTab == key) DeepLBlue else Color(0xFF888888),
-                                                    modifier = Modifier.size(16.dp))
+                                                    modifier = Modifier.size(16.dp)
+                                                )
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text(label,
+                                                Text(
+                                                    label,
                                                     color = if (alternativeTab == key) DeepLBlue else Color(0xFF888888),
                                                     fontSize = 14.sp,
-                                                    fontWeight = if (alternativeTab == key) FontWeight.Medium else FontWeight.Normal)
+                                                    fontWeight = if (alternativeTab == key) FontWeight.Medium else FontWeight.Normal
+                                                )
                                             }
                                         }
                                         Spacer(modifier = Modifier.width(8.dp))
@@ -580,13 +579,19 @@ fun TranslatorScreen(
                                 val alts = if (alternativeTab == "kata")
                                     listOf("Hello,...", "Hi,...", "Hey,...")
                                 else
-                                    listOf("${uiState.outputText}...", "Well, ${uiState.outputText.lowercase()}...", "Actually, ${uiState.outputText.lowercase()}...")
+                                    listOf(
+                                        "${uiState.outputText}...",
+                                        "Well, ${uiState.outputText.lowercase()}...",
+                                        "Actually, ${uiState.outputText.lowercase()}..."
+                                    )
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     alts.forEach { alt ->
-                                        Text(text = alt, fontSize = 16.sp, color = DeepLTextBlack,
+                                        Text(
+                                            text = alt, fontSize = 16.sp, color = DeepLTextBlack,
                                             modifier = Modifier.fillMaxWidth()
                                                 .clickable { viewModel.onInputChanged(alt.removeSuffix("...")) }
-                                                .padding(horizontal = 20.dp, vertical = 14.dp))
+                                                .padding(horizontal = 20.dp, vertical = 14.dp)
+                                        )
                                         HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
@@ -610,8 +615,10 @@ fun TranslatorScreen(
                         color = DeepLDarkBar,
                         modifier = Modifier.weight(1f).clickable { showSourcePicker = true }
                     ) {
-                        Text(uiState.sourceLang.name, color = Color.White, fontSize = 15.sp,
-                            modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally))
+                        Text(
+                            uiState.sourceLang.name, color = Color.White, fontSize = 15.sp,
+                            modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally)
+                        )
                     }
                     IconButton(
                         onClick = { viewModel.onSwapLanguages() },
@@ -625,24 +632,13 @@ fun TranslatorScreen(
                         color = DeepLDarkBar,
                         modifier = Modifier.weight(1f).clickable { showTargetPicker = true }
                     ) {
-                        Text(uiState.targetLang.name, color = Color.White, fontSize = 15.sp,
-                            modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally))
+                        Text(
+                            uiState.targetLang.name, color = Color.White, fontSize = 15.sp,
+                            modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally)
+                        )
                     }
                 }
             }
         }
     }
 }
-
-@Composable
-fun DictionaryScreen(viewModel: TranslatorViewModel, onBack: () -> Unit) {
-
-}
-
-
-//
-//@Composable
-//fun DictionaryScreen(viewModel: TranslatorViewModel, onBack: () -> Unit) {
-//
-//}
-//
