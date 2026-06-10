@@ -28,23 +28,18 @@ import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-
-// ── Model ─────────────────────────────────────────────────────────────────────
 data class DictionaryMeaning(
     val partOfSpeech: String,
     val definitions: List<String>,
     val synonyms: List<String>,
     val antonyms: List<String>
 )
-
 data class DictionaryResult(
     val word: String,
     val phonetic: String,
     val meanings: List<DictionaryMeaning>,
     val audioUrl: String
 )
-
-// ── Warna ─────────────────────────────────────────────────────────────────────
 private val DictBlue     = Color(0xFF1A56DB)
 private val DictBlueBg   = Color(0xFFDEEAFF)
 private val DictGrayBg   = Color(0xFFF5F5F5)
@@ -61,7 +56,6 @@ fun DictionaryScreen(
     var isLoading by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<DictionaryResult?>(null) }
     var errorMsg by remember { mutableStateOf("") }
-
     suspend fun lookupWord(word: String) {
         if (word.isBlank()) return
         withContext(Dispatchers.IO) {
@@ -82,7 +76,6 @@ fun DictionaryScreen(
                     }
                     return@withContext
                 }
-
                 val response = conn.inputStream.bufferedReader().readText()
                 val jsonArray = JSONArray(response)
                 val entry = jsonArray.getJSONObject(0)
@@ -90,7 +83,6 @@ fun DictionaryScreen(
                 val wordStr = entry.optString("word", word)
                 val phonetic = entry.optString("phonetic", "")
 
-                // Audio
                 var audioUrl = ""
                 val phoneticsArr = entry.optJSONArray("phonetics")
                 if (phoneticsArr != null) {
@@ -101,7 +93,6 @@ fun DictionaryScreen(
                     }
                 }
 
-                // Meanings
                 val meaningsArr = entry.optJSONArray("meanings") ?: JSONArray()
                 val meanings = mutableListOf<DictionaryMeaning>()
                 for (i in 0 until meaningsArr.length()) {
@@ -134,14 +125,13 @@ fun DictionaryScreen(
             }
         }
     }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
             .statusBarsPadding()
     ) {
-        // ── TOP BAR ───────────────────────────────────────────────────────────
+        // TOP BAR
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -158,8 +148,7 @@ fun DictionaryScreen(
                 color = Color(0xFF1A1A1A)
             )
         }
-
-        // ── SEARCH BAR ────────────────────────────────────────────────────────
+        // SEARCH BAR
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -210,7 +199,7 @@ fun DictionaryScreen(
             }
         }
 
-        // ── CONTENT ───────────────────────────────────────────────────────────
+        // CONTENT
         when {
             isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -244,6 +233,13 @@ fun DictionaryScreen(
                             color = Color.LightGray,
                             fontSize = 13.sp
                         )
+                        // TAMBAHAN
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "(Hanya mendukung bahasa Inggris)",
+                            color = Color.LightGray,
+                            fontSize = 12.sp
+                        )
                     }
                 }
             }
@@ -259,7 +255,6 @@ fun DictionaryScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Header: kata + fonetik
                         item {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -287,7 +282,6 @@ fun DictionaryScreen(
                             }
                         }
 
-                        // Meanings
                         itemsIndexed(res.meanings) { index, meaning ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -296,7 +290,6 @@ fun DictionaryScreen(
                                 elevation = CardDefaults.cardElevation(2.dp)
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
-                                    // Part of speech badge
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
                                         color = DictGrayBg
@@ -312,7 +305,6 @@ fun DictionaryScreen(
 
                                     Spacer(modifier = Modifier.height(12.dp))
 
-                                    // Definitions
                                     meaning.definitions.forEachIndexed { i, def ->
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
@@ -338,7 +330,6 @@ fun DictionaryScreen(
                                         }
                                     }
 
-                                    // Synonyms
                                     if (meaning.synonyms.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(12.dp))
                                         HorizontalDivider(color = Color(0xFFF0F0F0))
@@ -370,7 +361,6 @@ fun DictionaryScreen(
                                         }
                                     }
 
-                                    // Antonyms
                                     if (meaning.antonyms.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(10.dp))
                                         Text(
