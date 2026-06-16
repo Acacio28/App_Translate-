@@ -36,7 +36,6 @@ data class DictionaryMeaning(
     val synonyms: List<String>,
     val antonyms: List<String>
 )
-
 data class DictionaryResult(
     val word: String,
     val phonetic: String,

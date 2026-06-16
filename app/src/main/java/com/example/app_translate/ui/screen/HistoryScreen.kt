@@ -6,7 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.*
@@ -20,36 +20,29 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.app_translate.data.local.HistoryEntity
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.ui.theme.WhiteColor
+import kotlin.text.uppercase
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(
-    viewModel: TranslatorViewModel,
-    onBack: (() -> Unit)? = null   // ← TAMBAH INI
+    viewModel: TranslatorViewModel = viewModel(),
+    onBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                // ── TOMBOL BACK ──────────────────────────────────────────────
+                title = { Text("Riwayat Terjemahan", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                Icons.Default.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color(0xFF444444)
-                            )
-                        }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
-                },
-                title = {
-                    Text("Riwayat Terjemahan", fontWeight = FontWeight.Bold)
                 },
                 actions = {
                     if (uiState.historyList.isNotEmpty()) {
@@ -68,7 +61,9 @@ fun HistoryScreen(
     ) { innerPadding ->
         if (uiState.historyList.isEmpty()) {
             Box(
-                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -131,11 +126,13 @@ fun HistoryCard(item: HistoryEntity) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
                 thickness = 0.5.dp,
                 color = Color.LightGray
             )
+
             Text(
                 text = item.targetText,
                 fontSize = 16.sp,
