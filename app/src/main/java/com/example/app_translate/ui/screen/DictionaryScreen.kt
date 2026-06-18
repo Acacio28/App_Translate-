@@ -70,7 +70,7 @@ fun DictionaryScreen(
                 val code = conn.responseCode
                 if (code != 200) {
                     withContext(Dispatchers.Main) {
-                        errorMsg = "Kata \"$word\" tidak ditemukan"
+                        errorMsg = "Kata \"$word\" not found"
                         result = null
                         isLoading = false
                     }
@@ -159,7 +159,7 @@ fun DictionaryScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Cari kata dalam bahasa Inggris...") },
+                placeholder = { Text("Search for a word in English...") },
                 shape = RoundedCornerShape(14.dp),
                 singleLine = true,
                 leadingIcon = {
@@ -195,7 +195,7 @@ fun DictionaryScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = DictBlue),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
             ) {
-                Text("Cari")
+                Text("Search")
             }
         }
 
@@ -223,13 +223,13 @@ fun DictionaryScreen(
                         Text("📖", fontSize = 56.sp)
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            "Cari arti kata dalam bahasa Inggris",
+                            "Find the meaning of an English word",
                             color = Color.Gray,
                             fontSize = 15.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Contoh: hello, beautiful, run",
+                            "Example: hello, beautiful, run",
                             color = Color.LightGray,
                             fontSize = 13.sp
                         )
@@ -335,7 +335,7 @@ fun DictionaryScreen(
                                         HorizontalDivider(color = Color(0xFFF0F0F0))
                                         Spacer(modifier = Modifier.height(10.dp))
                                         Text(
-                                            "Sinonim",
+                                            "Synonyms",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = DictTextGray
@@ -364,7 +364,7 @@ fun DictionaryScreen(
                                     if (meaning.antonyms.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(10.dp))
                                         Text(
-                                            "Antonim",
+                                            "Antonyms",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = DictTextGray
