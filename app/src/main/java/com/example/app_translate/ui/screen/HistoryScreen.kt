@@ -49,14 +49,14 @@ fun HistoryScreen(
                     }
                 },
                 title = {
-                    Text("Riwayat Terjemahan", fontWeight = FontWeight.Bold)
+                    Text("Translation History", fontWeight = FontWeight.Bold)
                 },
                 actions = {
                     if (uiState.historyList.isNotEmpty()) {
                         IconButton(onClick = { viewModel.clearHistory() }) {
                             Icon(
                                 Icons.Default.DeleteSweep,
-                                contentDescription = "Hapus Semua",
+                                contentDescription = "Delete All",
                                 tint = Color.Red
                             )
                         }
@@ -79,7 +79,7 @@ fun HistoryScreen(
                         tint = Color.LightGray
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text("Belum ada riwayat", color = Color.Gray)
+                    Text("No history yet", color = Color.Gray)
                 }
             }
         } else {
