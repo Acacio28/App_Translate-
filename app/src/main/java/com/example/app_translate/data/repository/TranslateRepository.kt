@@ -39,7 +39,7 @@ class TranslateRepository {
         return withContext(Dispatchers.IO) {
             try {
                 val encoded = URLEncoder.encode(text, "UTF-8")
-                val url = "https://api.mymemory.translated.net/get?q=$encoded&langpair=$sourceLang|$targetLang"
+                val url = "https://api.mymemory.translated.net/get?q=$encoded&langpair=$sourceLang|$targetLang&de=enzi23dev@gmail.com"
 
                 val conn = URL(url).openConnection() as HttpURLConnection
                 conn.requestMethod = "GET"
