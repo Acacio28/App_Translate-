@@ -43,7 +43,7 @@ fun DialogueScreen() {
     val scope = rememberCoroutineScope()
 
     // Ganti dengan Gemini API key kamu
-    val apiKey = "ISI_API_KEY_KAMU_DISINI"
+    val apiKey = "YOUR_API_KEY_HERE"
 
     suspend fun sendToGemini(userMessage: String): String {
         return withContext(Dispatchers.IO) {
@@ -86,7 +86,7 @@ fun DialogueScreen() {
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text("Dialogue AI", fontWeight = FontWeight.Bold, color = PurpleColor)
+                    Text("AI Chat", fontWeight = FontWeight.Bold, color = PurpleColor)
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = WhiteColor)
             )
@@ -103,7 +103,7 @@ fun DialogueScreen() {
                     value = inputText,
                     onValueChange = { inputText = it },
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("Ketik pesan...") },
+                    placeholder = { Text("Type a message...") },
                     shape = RoundedCornerShape(24.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PurpleColor,
@@ -156,7 +156,7 @@ fun DialogueScreen() {
                             Text("🤖", fontSize = 48.sp)
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "Tanya apa saja ke AI",
+                                "Ask the AI anything",
                                 color = Color.Gray,
                                 fontSize = 16.sp
                             )
