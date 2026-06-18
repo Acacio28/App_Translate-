@@ -81,13 +81,13 @@ fun CameraScreen(
                     .addOnSuccessListener { visionText ->
                         if (visionText.text.isNotBlank()) {
                             viewModel.onInputChanged(visionText.text)
-                            Toast.makeText(context, "Teks berhasil dideteksi!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Text detected successfully!", Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(context, "Tidak ada teks ditemukan", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "No text found", Toast.LENGTH_SHORT).show()
                         }
                     }
                     .addOnFailureListener {
-                        Toast.makeText(context, "Gagal membaca gambar", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Failed to read image", Toast.LENGTH_SHORT).show()
                     }
             } catch (e: Exception) {
                 Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -212,9 +212,9 @@ fun CameraScreen(
                                                 .addOnSuccessListener { visionText ->
                                                     if (visionText.text.isNotBlank()) {
                                                         viewModel.onInputChanged(visionText.text)
-                                                        Toast.makeText(context, "Teks terdeteksi!", Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, "Text detected!", Toast.LENGTH_SHORT).show()
                                                     } else {
-                                                        Toast.makeText(context, "Tidak ada teks", Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, "No text", Toast.LENGTH_SHORT).show()
                                                     }
                                                     image.close()
                                                 }
@@ -239,16 +239,16 @@ fun CameraScreen(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Ketuk tombol untuk scan teks", color = Color.White, fontSize = 12.sp)
+                Text("Tap the button to scan text", color = Color.White, fontSize = 12.sp)
             }
         }
     } else {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Izin kamera diperlukan", color = Color.White)
+                Text("Camera permission required", color = Color.White)
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) }) {
-                    Text("Izinkan Kamera")
+                    Text("Allow Camera")
                 }
             }
         }
