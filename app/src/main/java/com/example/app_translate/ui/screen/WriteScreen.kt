@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.app_translate.BuildConfig
 import com.example.app_translate.data.model.Language
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.ui.theme.WhiteColor
@@ -40,28 +41,51 @@ fun WriteScreen(
     var selectedMode by remember { mutableStateOf("Fix Grammar") }
     val scope = rememberCoroutineScope()
 
-    val apiKey = "YOUR_API_KEY_HERE"
+    // Grammar check uses free LanguageTool API; other modes use Gemini (configure in local.properties)
 
     val modes = listOf("Fix Grammar", "Formal", "Casual", "Concise", "Expand")
 
-    suspend fun processText(text: String, mode: String): String {
+    suspend fun fixGrammar(text: String): String {
         return withContext(Dispatchers.IO) {
             try {
-                val prompt = when (mode) {
-                    "Fix Grammar" -> "Fix the grammar and spelling of the following text. Only show the corrected result without explanation:\n\n$text"
-                    "Formal"           -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
-                    "Casual"           -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
-                    "Concise"          -> "Summarize the following text to be more concise without losing key points. Only show the result:\n\n$text"
-                    "Expand"          -> "Expand the following text with more complete details. Only show the result:\n\n$text"
-                    else               -> text
+                val url = URL("https://api.languagetool.org/v2/check")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                conn.doOutput = true
+                val body = "text=" + java.net.URLEncoder.encode(text, "UTF-8") + "&language=en-US"
+                conn.outputStream.write(body.toByteArray())
+                val response = conn.inputStream.bufferedReader().readText()
+                val json = JSONObject(response)
+                val matches = json.getJSONArray("matches")
+                val sb = StringBuilder(text)
+                for (i in matches.length() - 1 downTo 0) {
+                    val m = matches.getJSONObject(i)
+                    val offset = m.getInt("offset")
+                    val length = m.getInt("length")
+                    val repl = m.getJSONArray("replacements")
+                    if (repl.length() > 0) {
+                        val replacement = repl.getJSONObject(0).getString("value")
+                        sb.replace(offset, offset + length, replacement)
+                    }
                 }
+                sb.toString()
+            } catch (e: Exception) {
+                "Error: ${e.message}"
+            }
+        }
+    }
 
-                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey)
+    suspend fun processWithGemini(text: String, prompt: String): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                val key = BuildConfig.GEMINI_API_KEY
+                if (key.isBlank()) return@withContext "Gemini API key not configured. Add GEMINI_API_KEY to local.properties"
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key)
                 val conn = url.openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.doOutput = true
-
                 val body = JSONObject().apply {
                     put("contents", JSONArray().apply {
                         put(JSONObject().apply {
@@ -71,9 +95,7 @@ fun WriteScreen(
                         })
                     })
                 }
-
                 conn.outputStream.write(body.toString().toByteArray())
-
                 val response = conn.inputStream.bufferedReader().readText()
                 val json = JSONObject(response)
                 json.getJSONArray("candidates")
@@ -84,6 +106,22 @@ fun WriteScreen(
                     .getString("text")
             } catch (e: Exception) {
                 "Error: ${e.message}"
+            }
+        }
+    }
+
+    suspend fun processText(text: String, mode: String): String {
+        return when (mode) {
+            "Fix Grammar" -> fixGrammar(text)
+            else -> {
+                val prompt = when (mode) {
+                    "Formal"  -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
+                    "Casual"  -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
+                    "Concise" -> "Summarize the following text to be more concise without losing key points. Only show the result:\n\n$text"
+                    "Expand"  -> "Expand the following text with more complete details. Only show the result:\n\n$text"
+                    else      -> text
+                }
+                processWithGemini(text, prompt)
             }
         }
     }
