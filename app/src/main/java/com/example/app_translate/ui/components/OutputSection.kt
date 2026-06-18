@@ -26,7 +26,7 @@ fun OutputSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "HASIL TERJEMAHAN",
+            text = "TRANSLATION RESULT",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = GrayColor,
@@ -48,7 +48,7 @@ fun OutputSection(
                 )
             } else {
                 Text(
-                    text = if (isError) "Terjadi kesalahan..." else outputText,
+                    text = if (isError) "An error occurred..." else outputText,
                     fontSize = 20.sp,
                     color = if (isError) RedColor else WhiteColor,
                     modifier = Modifier.fillMaxWidth()
@@ -64,13 +64,13 @@ fun OutputSection(
             horizontalArrangement = Arrangement.End
         ) {
             TextButton(onClick = onShare) {
-                Text("📤 Bagikan", color = PurpleColor)
+                Text("📤 Share", color = PurpleColor)
             }
             TextButton(onClick = onSpeak) {
-                Text("🔊 Baca", color = PurpleColor)
+                Text("🔊 Read aloud", color = PurpleColor)
             }
             TextButton(onClick = onCopy) {
-                Text("📋 Salin", color = PurpleColor)
+                Text("📋 Copy", color = PurpleColor)
             }
         }
     }
