@@ -127,9 +127,7 @@ fun HistoryCard(item: HistoryEntity) {
             Text(
                 text = item.sourceText,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                fontWeight = FontWeight.Medium
             )
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
@@ -140,9 +138,7 @@ fun HistoryCard(item: HistoryEntity) {
                 text = item.targetText,
                 fontSize = 16.sp,
                 color = PurpleColor,
-                fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                fontWeight = FontWeight.Bold
             )
         }
     }
