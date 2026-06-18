@@ -33,7 +33,7 @@ fun InputSection(
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "MASUKKAN TEKS",
+            text = "INPUT TEXT",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = GrayColor, // Diambil dari Color.kt
@@ -55,7 +55,7 @@ fun InputSection(
                 decorationBox = { inner ->
                     if (inputText.isEmpty()) {
                         Text(
-                            text = "Mulai mengetik...",
+                            text = "Start typing...",
                             color = GrayColor,
                             fontSize = 20.sp
                         )
@@ -71,10 +71,10 @@ fun InputSection(
             horizontalArrangement = Arrangement.End
         ) {
             TextButton(onClick = onSpeak) {
-                Text("🔊 Dengar", color = PurpleColor)
+                Text("🔊 Listen", color = PurpleColor)
             }
             TextButton(onClick = onCopy) {
-                Text("📋 Salin", color = PurpleColor)
+                Text("📋 Copy", color = PurpleColor)
             }
         }
     }

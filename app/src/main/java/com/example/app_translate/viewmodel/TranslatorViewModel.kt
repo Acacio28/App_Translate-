@@ -140,7 +140,7 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
                 onFailure = {
                     _uiState.update {
                         it.copy(
-                            outputText = "Gagal menerjemahkan.",
+                            outputText = "Translation failed.",
                             isLoading = false,
                             isError = true
                         )

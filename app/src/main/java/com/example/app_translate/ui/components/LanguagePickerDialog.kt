@@ -43,7 +43,7 @@ fun LanguagePickerDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal", color = PurpleColor)
+                Text("Cancel", color = PurpleColor)
             }
         }
     )
