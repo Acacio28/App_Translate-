@@ -44,6 +44,13 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.Locale
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
 
 private val DeepLBlue      = Color(0xFF1A56DB)
 private val DeepLBlueBg    = Color(0xFFDEEAFF)
@@ -212,7 +219,12 @@ fun TranslatorScreen(
         )
     }
 
-    when (currentTab) {
+    AnimatedContent(targetState = currentTab, transitionSpec = {
+        (fadeIn(animationSpec = tween(250)) + slideInHorizontally { w -> w / 5 }).togetherWith(
+            fadeOut(animationSpec = tween(250)) + slideOutHorizontally { w -> -w / 5 }
+        )
+    }, label = "tabContent") { tab ->
+        when (tab) {
 
         "camera" -> {
             CameraScreen(
@@ -622,4 +634,5 @@ fun TranslatorScreen(
             }
         }
     }
+}
 }
