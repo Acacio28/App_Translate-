@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.app_translate.BuildConfig
 import com.example.app_translate.ui.theme.LightPurpleColor
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.ui.theme.WhiteColor
@@ -42,8 +43,7 @@ fun DialogueScreen() {
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // Ganti dengan Gemini API key kamu
-    val apiKey = "YOUR_API_KEY_HERE"
+    val apiKey = BuildConfig.GEMINI_API_KEY
 
     suspend fun sendToGemini(userMessage: String): String {
         return withContext(Dispatchers.IO) {
