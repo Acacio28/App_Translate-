@@ -1,3 +1,4 @@
+import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,9 +17,14 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        val anthropicKey = project.findProperty("ANTHROPIC_API_KEY")?.toString() ?: ""
+        val localPropsFile = rootProject.file("local.properties")
+        val localProps = Properties()
+        if (localPropsFile.exists()) {
+            localProps.load(localPropsFile.inputStream())
+        }
+        val anthropicKey = localProps.getProperty("ANTHROPIC_API_KEY") ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicKey\"")
-        val geminiKey = project.findProperty("GEMINI_API_KEY")?.toString() ?: ""
+        val geminiKey = localProps.getProperty("GEMINI_API_KEY") ?: ""
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
