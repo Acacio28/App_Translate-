@@ -37,22 +37,22 @@ fun WriteScreen(
     var inputText by remember { mutableStateOf("") }
     var resultText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var selectedMode by remember { mutableStateOf("Perbaiki Grammar") }
+    var selectedMode by remember { mutableStateOf("Fix Grammar") }
     val scope = rememberCoroutineScope()
 
-    val apiKey = "ISI_API_KEY_KAMU_DISINI"
+    val apiKey = "YOUR_API_KEY_HERE"
 
-    val modes = listOf("Perbaiki Grammar", "Formal", "Santai", "Ringkas", "Perluas")
+    val modes = listOf("Fix Grammar", "Formal", "Casual", "Concise", "Expand")
 
     suspend fun processText(text: String, mode: String): String {
         return withContext(Dispatchers.IO) {
             try {
                 val prompt = when (mode) {
-                    "Perbaiki Grammar" -> "Perbaiki grammar dan ejaan teks berikut. Hanya tampilkan hasil perbaikan tanpa penjelasan:\n\n$text"
-                    "Formal"           -> "Ubah teks berikut menjadi gaya bahasa formal profesional. Hanya tampilkan hasilnya:\n\n$text"
-                    "Santai"           -> "Ubah teks berikut menjadi gaya bahasa santai dan natural. Hanya tampilkan hasilnya:\n\n$text"
-                    "Ringkas"          -> "Ringkas teks berikut menjadi lebih singkat tanpa menghilangkan poin penting. Hanya tampilkan hasilnya:\n\n$text"
-                    "Perluas"          -> "Perluas teks berikut dengan detail lebih lengkap. Hanya tampilkan hasilnya:\n\n$text"
+                    "Fix Grammar" -> "Fix the grammar and spelling of the following text. Only show the corrected result without explanation:\n\n$text"
+                    "Formal"           -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
+                    "Casual"           -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
+                    "Concise"          -> "Summarize the following text to be more concise without losing key points. Only show the result:\n\n$text"
+                    "Expand"          -> "Expand the following text with more complete details. Only show the result:\n\n$text"
                     else               -> text
                 }
 
@@ -106,7 +106,7 @@ fun WriteScreen(
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Bahasa: ", fontSize = 13.sp, color = Color.Gray)
+                Text("Language: ", fontSize = 13.sp, color = Color.Gray)
                 TextButton(onClick = onLangClick, contentPadding = PaddingValues(0.dp)) {
                     Text(
                         selectedLang.name,
@@ -161,7 +161,7 @@ fun WriteScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    "TEKS INPUT",
+                    "INPUT TEXT",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Gray
@@ -173,7 +173,7 @@ fun WriteScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 140.dp),
-                    placeholder = { Text("Masukkan teks yang ingin diperbaiki...") },
+                    placeholder = { Text("Enter the text you want to improve...") },
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = PurpleColor,
@@ -191,7 +191,7 @@ fun WriteScreen(
                         color = if (inputText.length > 900) Color.Red else Color.Gray
                     )
                     TextButton(onClick = { inputText = ""; resultText = "" }) {
-                        Text("Hapus", color = Color.Gray)
+                        Text("Clear", color = Color.Gray)
                     }
                 }
             }
@@ -227,7 +227,7 @@ fun WriteScreen(
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(
-                if (isLoading) "Memproses..." else "✨ Proses dengan AI",
+                if (isLoading) "Processing..." else "✨ Process with AI",
                 fontWeight = FontWeight.Bold
             )
         }
@@ -252,7 +252,7 @@ fun WriteScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "HASIL",
+                                "RESULT",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Gray
@@ -261,7 +261,7 @@ fun WriteScreen(
                                 inputText = resultText
                                 resultText = ""
                             }) {
-                                Text("Gunakan teks ini", color = PurpleColor, fontSize = 12.sp)
+                                Text("Use this text", color = PurpleColor, fontSize = 12.sp)
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
