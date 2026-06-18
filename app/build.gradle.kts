@@ -18,6 +18,8 @@ android {
         versionName = "1.0"
         val anthropicKey = project.findProperty("ANTHROPIC_API_KEY")?.toString() ?: ""
         buildConfigField("String", "ANTHROPIC_API_KEY", "\"$anthropicKey\"")
+        val geminiKey = project.findProperty("GEMINI_API_KEY")?.toString() ?: ""
+        buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
