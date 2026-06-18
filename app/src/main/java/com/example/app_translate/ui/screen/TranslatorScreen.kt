@@ -68,7 +68,7 @@ fun TranslatorScreen(
     var showSourcePicker by remember { mutableStateOf(false) }
     var showTargetPicker by remember { mutableStateOf(false) }
     var showAlternatives by remember { mutableStateOf(false) }
-    var alternativeTab   by remember { mutableStateOf("kata") }
+    var alternativeTab   by remember { mutableStateOf("word") }
 
     var undoStack by remember { mutableStateOf(listOf<String>()) }
     var redoStack by remember { mutableStateOf(listOf<String>()) }
@@ -101,16 +101,16 @@ fun TranslatorScreen(
                         undoStack = undoStack + uiState.inputText
                         redoStack = emptyList()
                         viewModel.onInputChanged(extracted)
-                        Toast.makeText(context, "Teks berhasil diekstrak!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Text extracted successfully!", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "Tidak ada teks ditemukan", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "No text found", Toast.LENGTH_SHORT).show()
                     }
                 }
                 .addOnFailureListener {
-                    Toast.makeText(context, "Gagal membaca teks dari gambar", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Failed to read text from image", Toast.LENGTH_SHORT).show()
                 }
         } catch (e: Exception) {
-            Toast.makeText(context, "Gagal membuka gambar", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Failed to open image", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -129,7 +129,7 @@ fun TranslatorScreen(
         if (text.isBlank()) return
         val cb = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cb.setPrimaryClip(ClipData.newPlainText("text", text))
-        Toast.makeText(context, "Disalin!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "Copied!", Toast.LENGTH_SHORT).show()
     }
 
     fun pasteText() {
@@ -146,18 +146,18 @@ fun TranslatorScreen(
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
         }
-        context.startActivity(Intent.createChooser(intent, "Bagikan"))
+        context.startActivity(Intent.createChooser(intent, "Share"))
     }
 
     fun startVoice() {
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, uiState.sourceLang.code)
-            putExtra(RecognizerIntent.EXTRA_PROMPT, "Bicara sekarang...")
+            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now...")
         }
         try { voiceLauncher.launch(intent) }
         catch (e: Exception) {
-            Toast.makeText(context, "Voice tidak tersedia", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Voice not available", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -187,7 +187,7 @@ fun TranslatorScreen(
 
     if (showSourcePicker) {
         LanguagePickerDialog(
-            title = "Pilih Bahasa Sumber",
+            title = "Choose Source Language",
             currentLang = uiState.sourceLang,
             onLanguageSelected = { viewModel.onSourceLangChanged(it); showSourcePicker = false },
             onDismiss = { showSourcePicker = false }
@@ -195,7 +195,7 @@ fun TranslatorScreen(
     }
     if (showTargetPicker) {
         LanguagePickerDialog(
-            title = "Pilih Bahasa Tujuan",
+            title = "Choose Target Language",
             currentLang = uiState.targetLang,
             onLanguageSelected = { viewModel.onTargetLangChanged(it); showTargetPicker = false },
             onDismiss = { showTargetPicker = false }
@@ -206,7 +206,7 @@ fun TranslatorScreen(
     var showWriteLangPicker by remember { mutableStateOf(false) }
     if (showWriteLangPicker) {
         LanguagePickerDialog(
-            title = "Pilih Bahasa",
+            title = "Choose Language",
             currentLang = writeLang,
             onLanguageSelected = { writeLang = it; showWriteLangPicker = false },
             onDismiss = { showWriteLangPicker = false }
@@ -372,7 +372,7 @@ fun TranslatorScreen(
                     ) {
                         if (uiState.inputText.isEmpty()) {
                             Text(
-                                "Ketik, tempel, atau terjemahkan dari sumber di bawah ini",
+                                "Type, paste, or translate from the source below",
                                 color = DeepLTextGray, fontSize = 16.sp, lineHeight = 24.sp
                             )
                         }
@@ -398,7 +398,7 @@ fun TranslatorScreen(
                                 ) {
                                     Icon(Icons.Default.ContentPaste, null, tint = DeepLBlue, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Tempelkan", color = DeepLBlue, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                    Text("Paste", color = DeepLBlue, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                                 }
                             }
                         }
@@ -411,7 +411,7 @@ fun TranslatorScreen(
                             modifier = Modifier.padding(horizontal = 16.dp)
                         ) {
                             Text(
-                                "Terdeteksi: ${uiState.detectedLanguage?.name}. Gunakan?",
+                                "Detected: ${uiState.detectedLanguage?.name}. Use this?",
                                 color = DeepLBlue, fontSize = 13.sp
                             )
                         }
@@ -497,7 +497,7 @@ fun TranslatorScreen(
                                 CircularProgressIndicator(color = DeepLBlue, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
                             } else {
                                 Text(
-                                    text = if (uiState.isError) "Terjemahan gagal" else uiState.outputText,
+                                    text = if (uiState.isError) "Translation failed" else uiState.outputText,
                                     fontSize = 20.sp, lineHeight = 28.sp,
                                     color = if (uiState.isError) Color.Red else DeepLBlue
                                 )
@@ -518,11 +518,11 @@ fun TranslatorScreen(
                                     color = DeepLBlueBg,
                                     modifier = Modifier.clickable {
                                         showAlternatives = !showAlternatives
-                                        if (showAlternatives) alternativeTab = "kata"
+                                        if (showAlternatives) alternativeTab = "word"
                                     }
                                 ) {
                                     Text(
-                                        "Alternatif", color = DeepLBlue, fontSize = 14.sp,
+                                        "Alternatives", color = DeepLBlue, fontSize = 14.sp,
                                         fontWeight = FontWeight.Medium,
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                                     )
@@ -545,7 +545,7 @@ fun TranslatorScreen(
                                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    listOf("kata" to "Kata", "kalimat" to "Kalimat").forEach { (key, label) ->
+                                    listOf("word" to "Word", "sentence" to "Sentence").forEach { (key, label) ->
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
                                             color = if (alternativeTab == key) DeepLBlueBg else Color.Transparent,
@@ -576,7 +576,7 @@ fun TranslatorScreen(
                                         Icon(Icons.Default.Close, null, tint = Color(0xFF888888), modifier = Modifier.size(20.dp))
                                     }
                                 }
-                                val alts = if (alternativeTab == "kata")
+                                val alts = if (alternativeTab == "word")
                                     listOf("Hello,...", "Hi,...", "Hey,...")
                                 else
                                     listOf(
