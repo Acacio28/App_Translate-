@@ -124,8 +124,8 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             val result = repository.translate(
                 state.inputText,
-                state.sourceLang.code,
-                state.targetLang.code
+                state.sourceLang.apiCode,
+                state.targetLang.apiCode
             )
             result.fold(
                 onSuccess = { translated ->
@@ -156,16 +156,16 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             val result = repository.translate(
                 text,
-                state.sourceLang.code,
-                state.targetLang.code
+                state.sourceLang.apiCode,
+                state.targetLang.apiCode
             )
             result.fold(
                 onSuccess = { translated ->
                     val message = DialogueMessage(
                         originalText = text,
                         translatedText = translated,
-                        sourceLangCode = state.sourceLang.code,
-                        targetLangCode = state.targetLang.code,
+                        sourceLangCode = state.sourceLang.apiCode,
+                        targetLangCode = state.targetLang.apiCode,
                         isFromMe = isFromMe
                     )
                     _uiState.update { it.copy(dialogueMessages = it.dialogueMessages + message) }
