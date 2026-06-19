@@ -38,43 +38,10 @@ fun WriteScreen(
     var inputText by remember { mutableStateOf("") }
     var resultText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var selectedMode by remember { mutableStateOf("Fix Grammar") }
+    var selectedMode by remember { mutableStateOf("Formal") }
     val scope = rememberCoroutineScope()
 
-    // Grammar check uses free LanguageTool API; other modes use Gemini (configure in local.properties)
-
-    val modes = listOf("Fix Grammar", "Formal", "Casual", "Concise", "Expand")
-
-    suspend fun fixGrammar(text: String): String {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = URL("https://api.languagetool.org/v2/check")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                conn.doOutput = true
-                val body = "text=" + java.net.URLEncoder.encode(text, "UTF-8") + "&language=en-US"
-                conn.outputStream.write(body.toByteArray())
-                val response = conn.inputStream.bufferedReader().readText()
-                val json = JSONObject(response)
-                val matches = json.getJSONArray("matches")
-                val sb = StringBuilder(text)
-                for (i in matches.length() - 1 downTo 0) {
-                    val m = matches.getJSONObject(i)
-                    val offset = m.getInt("offset")
-                    val length = m.getInt("length")
-                    val repl = m.getJSONArray("replacements")
-                    if (repl.length() > 0) {
-                        val replacement = repl.getJSONObject(0).getString("value")
-                        sb.replace(offset, offset + length, replacement)
-                    }
-                }
-                sb.toString()
-            } catch (e: Exception) {
-                "Error: ${e.message}"
-            }
-        }
-    }
+    val modes = listOf("Formal", "Casual", "Expand")
 
     suspend fun processWithGemini(text: String, prompt: String): String {
         return withContext(Dispatchers.IO) {
@@ -111,19 +78,13 @@ fun WriteScreen(
     }
 
     suspend fun processText(text: String, mode: String): String {
-        return when (mode) {
-            "Fix Grammar" -> fixGrammar(text)
-            else -> {
-                val prompt = when (mode) {
-                    "Formal"  -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
-                    "Casual"  -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
-                    "Concise" -> "Summarize the following text to be more concise without losing key points. Only show the result:\n\n$text"
-                    "Expand"  -> "Expand the following text with more complete details. Only show the result:\n\n$text"
-                    else      -> text
-                }
-                processWithGemini(text, prompt)
-            }
+        val prompt = when (mode) {
+            "Formal"  -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
+            "Casual"  -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
+            "Expand"  -> "Expand the following text with more complete details. Only show the result:\n\n$text"
+            else      -> text
         }
+        return processWithGemini(text, prompt)
     }
 
     Column(
