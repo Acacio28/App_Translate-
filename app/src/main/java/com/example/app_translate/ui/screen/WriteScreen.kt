@@ -14,7 +14,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.app_translate.BuildConfig
@@ -29,6 +32,8 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class GrammarError(val offset: Int, val length: Int, val message: String, val replacement: String)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WriteScreen(
@@ -39,9 +44,45 @@ fun WriteScreen(
     var resultText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var selectedMode by remember { mutableStateOf("Formal") }
+    var grammarErrors by remember { mutableStateOf(listOf<GrammarError>()) }
     val scope = rememberCoroutineScope()
 
-    val modes = listOf("Formal", "Casual", "Expand")
+    val modes = listOf("Check Grammar", "Formal", "Casual", "Expand")
+
+    suspend fun checkGrammar(text: String): Pair<String, List<GrammarError>> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = URL("https://api.languagetool.org/v2/check")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                conn.doOutput = true
+                val body = "text=" + java.net.URLEncoder.encode(text, "UTF-8") + "&language=en-US"
+                conn.outputStream.write(body.toByteArray())
+                val response = conn.inputStream.bufferedReader().readText()
+                val json = JSONObject(response)
+                val matches = json.getJSONArray("matches")
+                val errors = mutableListOf<GrammarError>()
+                val sb = StringBuilder(text)
+                for (i in matches.length() - 1 downTo 0) {
+                    val m = matches.getJSONObject(i)
+                    val offset = m.getInt("offset")
+                    val length = m.getInt("length")
+                    val message = m.getString("message")
+                    val repl = m.getJSONArray("replacements")
+                    val replacement = if (repl.length() > 0) repl.getJSONObject(0).getString("value") else ""
+                    errors.add(GrammarError(offset, length, message, replacement))
+                    if (replacement.isNotEmpty()) {
+                        sb.replace(offset, offset + length, replacement)
+                    }
+                }
+                errors.reverse()
+                Pair(sb.toString(), errors)
+            } catch (e: Exception) {
+                Pair("Error: ${e.message}", emptyList())
+            }
+        }
+    }
 
     suspend fun processWithGemini(text: String, prompt: String): String {
         return withContext(Dispatchers.IO) {
@@ -78,13 +119,18 @@ fun WriteScreen(
     }
 
     suspend fun processText(text: String, mode: String): String {
-        val prompt = when (mode) {
-            "Formal"  -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
-            "Casual"  -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
-            "Expand"  -> "Expand the following text with more complete details. Only show the result:\n\n$text"
-            else      -> text
+        return when (mode) {
+            "Check Grammar" -> text
+            else -> {
+                val prompt = when (mode) {
+                    "Formal"  -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
+                    "Casual"  -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
+                    "Expand"  -> "Expand the following text with more complete details. Only show the result:\n\n$text"
+                    else      -> text
+                }
+                processWithGemini(text, prompt)
+            }
         }
-        return processWithGemini(text, prompt)
     }
 
     Column(
@@ -94,7 +140,6 @@ fun WriteScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        // Language selector
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = Color(0xFFEEEEEE),
@@ -123,7 +168,6 @@ fun WriteScreen(
             }
         }
 
-        // Mode selector
         Text(
             "Mode",
             fontWeight = FontWeight.Bold,
@@ -151,7 +195,6 @@ fun WriteScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Input
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -189,7 +232,7 @@ fun WriteScreen(
                         fontSize = 12.sp,
                         color = if (inputText.length > 900) Color.Red else Color.Gray
                     )
-                    TextButton(onClick = { inputText = ""; resultText = "" }) {
+                    TextButton(onClick = { inputText = ""; resultText = ""; grammarErrors = emptyList() }) {
                         Text("Clear", color = Color.Gray)
                     }
                 }
@@ -198,14 +241,20 @@ fun WriteScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Process button
         Button(
             onClick = {
                 if (inputText.isNotBlank()) {
                     isLoading = true
                     resultText = ""
+                    grammarErrors = emptyList()
                     scope.launch {
-                        resultText = processText(inputText, selectedMode)
+                        if (selectedMode == "Check Grammar") {
+                            val (corrected, errors) = checkGrammar(inputText)
+                            resultText = corrected
+                            grammarErrors = errors
+                        } else {
+                            resultText = processText(inputText, selectedMode)
+                        }
                         isLoading = false
                     }
                 }
@@ -231,7 +280,6 @@ fun WriteScreen(
             )
         }
 
-        // Result
         AnimatedVisibility(
             visible = resultText.isNotEmpty(),
             enter = fadeIn() + slideInVertically()
@@ -245,31 +293,137 @@ fun WriteScreen(
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "RESULT",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Gray
-                            )
-                            TextButton(onClick = {
-                                inputText = resultText
-                                resultText = ""
-                            }) {
-                                Text("Use this text", color = PurpleColor, fontSize = 12.sp)
+                        if (selectedMode == "Check Grammar") {
+                            if (grammarErrors.isEmpty()) {
+                                Text(
+                                    "NO ERRORS",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2E7D32)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = resultText,
+                                    fontSize = 16.sp,
+                                    color = Color.Black,
+                                    lineHeight = 24.sp
+                                )
+                            } else {
+                                Text(
+                                    "TEXT WITH ERRORS",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Red
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                val annotated = buildAnnotatedString {
+                                    append(inputText)
+                                    for (err in grammarErrors) {
+                                        addStyle(
+                                            SpanStyle(
+                                                color = Color.Red,
+                                                textDecoration = TextDecoration.Underline
+                                            ),
+                                            err.offset,
+                                            err.offset + err.length
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = annotated,
+                                    fontSize = 16.sp,
+                                    color = Color.Black,
+                                    lineHeight = 24.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    "ERRORS (${grammarErrors.size})",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Red
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                grammarErrors.forEach { err ->
+                                    val end = minOf(err.offset + err.length, inputText.length)
+                                    val wrongText = if (end > err.offset) inputText.substring(err.offset, end) else ""
+                                    Row(verticalAlignment = Alignment.Top) {
+                                        Icon(Icons.Default.Info, null, tint = Color.Red, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Column {
+                                            Text(
+                                                "\"$wrongText\"",
+                                                fontSize = 14.sp,
+                                                color = Color.Red,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                err.message,
+                                                fontSize = 13.sp,
+                                                color = Color.Gray
+                                            )
+                                            if (err.replacement.isNotEmpty()) {
+                                                Text(
+                                                    "\u2192 ${err.replacement}",
+                                                    fontSize = 13.sp,
+                                                    color = Color(0xFF2E7D32),
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    HorizontalDivider(color = Color(0xFFEEEEEE))
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    "CORRECTED TEXT",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2E7D32)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = resultText,
+                                    fontSize = 16.sp,
+                                    color = Color.Black,
+                                    lineHeight = 24.sp
+                                )
+                                TextButton(onClick = {
+                                    inputText = resultText
+                                    resultText = ""
+                                    grammarErrors = emptyList()
+                                }) {
+                                    Text("Use correction", color = PurpleColor, fontSize = 13.sp)
+                                }
                             }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    "RESULT",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Gray
+                                )
+                                TextButton(onClick = {
+                                    inputText = resultText
+                                    resultText = ""
+                                }) {
+                                    Text("Use this text", color = PurpleColor, fontSize = 12.sp)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = resultText,
+                                fontSize = 16.sp,
+                                color = Color.Black,
+                                lineHeight = 24.sp
+                            )
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = resultText,
-                            fontSize = 16.sp,
-                            color = Color.Black,
-                            lineHeight = 24.sp
-                        )
                     }
                 }
             }
