@@ -26,7 +26,7 @@ data class DialogueMessage(
 
 data class TranslatorUiState(
     val sourceLang: Language = languages[0],
-    val targetLang: Language = languages[1],
+    val targetLang: Language = languages[9],
     val inputText: String = "",
     val outputText: String = "",
     val isLoading: Boolean = false,
@@ -110,9 +110,7 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
                 .addOnSuccessListener { code ->
                     val detected = languages.find { it.code == code }
                     if (detected != null && code != _uiState.value.sourceLang.code) {
-                        _uiState.update { it.copy(detectedLanguage = detected) }
-                    } else {
-                        _uiState.update { it.copy(detectedLanguage = null) }
+                        _uiState.update { it.copy(sourceLang = detected, detectedLanguage = null) }
                     }
                     performTranslation(_uiState.value)
                 }
