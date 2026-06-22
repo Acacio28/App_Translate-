@@ -116,6 +116,10 @@ fun WriteScreen(
                 conn.doOutput = true
                 val body = "text=" + java.net.URLEncoder.encode(text, "UTF-8") + "&language=$langCode"
                 conn.outputStream.write(body.toByteArray())
+                val responseCode = conn.responseCode
+                if (responseCode !in 200..299) {
+                    return@withContext grammarViaGemini(text, langName)
+                }
                 val response = conn.inputStream.bufferedReader().readText()
                 val json = JSONObject(response)
                 val matches = json.getJSONArray("matches")
@@ -136,7 +140,7 @@ fun WriteScreen(
                 errors.reverse()
                 Pair(sb.toString(), errors)
             } catch (e: Exception) {
-                Pair("Error: ${e.message}", emptyList())
+                grammarViaGemini(text, langName)
             }
         }
     }
