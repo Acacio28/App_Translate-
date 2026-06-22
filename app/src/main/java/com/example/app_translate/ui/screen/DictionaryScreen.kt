@@ -20,11 +20,16 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.app_translate.BuildConfig
+import com.example.app_translate.data.model.Language
+import com.example.app_translate.data.model.languages
+import com.example.app_translate.ui.components.LanguagePickerDialog
 import com.example.app_translate.viewmodel.TranslatorViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -56,8 +61,85 @@ fun DictionaryScreen(
     var isLoading by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<DictionaryResult?>(null) }
     var errorMsg by remember { mutableStateOf("") }
-    suspend fun lookupWord(word: String) {
+    var dictLang by remember { mutableStateOf(languages.first { it.code == "en" }) }
+    var showLangPicker by remember { mutableStateOf(false) }
+
+    if (showLangPicker) {
+        LanguagePickerDialog(
+            title = "Choose Dictionary Language",
+            currentLang = dictLang,
+            onLanguageSelected = { dictLang = it; showLangPicker = false },
+            onDismiss = { showLangPicker = false }
+        )
+    }
+
+    suspend fun geminiLookup(word: String, lang: Language): DictionaryResult? {
+        return withContext(Dispatchers.IO) {
+            try {
+                val key = BuildConfig.GEMINI_API_KEY
+                if (key.isBlank()) return@withContext null
+                val prompt = "Act as a dictionary. Look up the word \"$word\" in ${lang.name}. Return valid JSON only with: word, phonetic (pronunciation), meanings (array of {partOfSpeech, definitions (array of string, max 3), synonyms (array of string, max 5), antonyms (array of string, max 5)}). No explanation outside JSON."
+                val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=$key")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                val body = JSONObject().apply {
+                    put("contents", JSONArray().apply {
+                        put(JSONObject().apply {
+                            put("parts", JSONArray().apply {
+                                put(JSONObject().apply { put("text", prompt) })
+                            })
+                        })
+                    })
+                }
+                conn.outputStream.write(body.toString().toByteArray())
+                val response = conn.inputStream.bufferedReader().readText()
+                val json = JSONObject(response)
+                val text = json.getJSONArray("candidates")
+                    .getJSONObject(0)
+                    .getJSONObject("content")
+                    .getJSONArray("parts")
+                    .getJSONObject(0)
+                    .getString("text")
+                val cleaned = text.replace("""```json""".toRegex(), "").replace("""```""".toRegex(), "").trim()
+                val data = JSONObject(cleaned)
+                val wordStr = data.optString("word", word)
+                val phonetic = data.optString("phonetic", "")
+                val meaningsArr = data.optJSONArray("meanings") ?: JSONArray()
+                val meanings = mutableListOf<DictionaryMeaning>()
+                for (i in 0 until meaningsArr.length()) {
+                    val m = meaningsArr.getJSONObject(i)
+                    val pos = m.optString("partOfSpeech", "")
+                    val defsArr = m.optJSONArray("definitions") ?: JSONArray()
+                    val defs = (0 until defsArr.length()).map { defsArr.getString(it) }
+                    val synsArr = m.optJSONArray("synonyms") ?: JSONArray()
+                    val syns = (0 until synsArr.length()).map { synsArr.getString(it) }
+                    val antsArr = m.optJSONArray("antonyms") ?: JSONArray()
+                    val ants = (0 until antsArr.length()).map { antsArr.getString(it) }
+                    meanings.add(DictionaryMeaning(pos, defs, syns, ants))
+                }
+                DictionaryResult(wordStr, phonetic, meanings, "")
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    suspend fun lookupWord(word: String, lang: Language) {
         if (word.isBlank()) return
+        if (lang.code != "en") {
+            val geminiResult = geminiLookup(word, lang)
+            if (geminiResult != null) {
+                result = geminiResult
+                errorMsg = ""
+            } else {
+                errorMsg = "Failed to look up \"$word\" in ${lang.name}"
+                result = null
+            }
+            isLoading = false
+            return
+        }
         withContext(Dispatchers.IO) {
             try {
                 val encoded = URLEncoder.encode(word.trim(), "UTF-8")
@@ -70,7 +152,7 @@ fun DictionaryScreen(
                 val code = conn.responseCode
                 if (code != 200) {
                     withContext(Dispatchers.Main) {
-                        errorMsg = "Kata \"$word\" not found"
+                        errorMsg = "\"$word\" not found"
                         result = null
                         isLoading = false
                     }
@@ -147,6 +229,19 @@ fun DictionaryScreen(
                 fontSize = 18.sp,
                 color = Color(0xFF1A1A1A)
             )
+            Spacer(modifier = Modifier.weight(1f))
+            TextButton(onClick = { showLangPicker = true }) {
+                Text(
+                    dictLang.name,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = DictBlue
+                )
+                Icon(
+                    Icons.Default.ArrowDropDown, null,
+                    tint = DictBlue, modifier = Modifier.size(18.dp)
+                )
+            }
         }
         // SEARCH BAR
         Row(
@@ -159,7 +254,7 @@ fun DictionaryScreen(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Search for a word in English...") },
+                placeholder = { Text("Search for a word in ${dictLang.name}...") },
                 shape = RoundedCornerShape(14.dp),
                 singleLine = true,
                 leadingIcon = {
@@ -188,7 +283,7 @@ fun DictionaryScreen(
                         isLoading = true
                         result = null
                         errorMsg = ""
-                        scope.launch { lookupWord(searchQuery) }
+                        scope.launch { lookupWord(searchQuery, dictLang) }
                     }
                 },
                 shape = RoundedCornerShape(14.dp),
@@ -223,20 +318,20 @@ fun DictionaryScreen(
                         Text("📖", fontSize = 56.sp)
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            "Find the meaning of an English word",
+                            "Find the meaning of a ${dictLang.name} word",
                             color = Color.Gray,
                             fontSize = 15.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "Example: hello, beautiful, run",
+                            "Type a word to look up its definition",
                             color = Color.LightGray,
                             fontSize = 13.sp
                         )
                         // TAMBAHAN
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "(Hanya mendukung bahasa Inggris)",
+                            "",
                             color = Color.LightGray,
                             fontSize = 12.sp
                         )

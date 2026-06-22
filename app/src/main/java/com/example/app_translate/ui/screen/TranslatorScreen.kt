@@ -407,18 +407,6 @@ fun TranslatorScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    if (uiState.detectedLanguage != null) {
-                        TextButton(
-                            onClick = { viewModel.applyDetectedLanguage() },
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        ) {
-                            Text(
-                                "Detected: ${uiState.detectedLanguage?.name}. Use this?",
-                                color = DeepLBlue, fontSize = 13.sp
-                            )
-                        }
-                    }
-
                     if (uiState.inputText.isNotEmpty()) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
@@ -608,7 +596,7 @@ fun TranslatorScreen(
                     }
                 }
 
-                // LANGUAGE BAR
+                    // LANGUAGE BAR
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -617,15 +605,24 @@ fun TranslatorScreen(
                         .navigationBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = DeepLDarkBar,
-                        modifier = Modifier.weight(1f).clickable { showSourcePicker = true }
-                    ) {
-                        Text(
-                            uiState.sourceLang.name, color = Color.White, fontSize = 15.sp,
-                            modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally)
-                        )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = DeepLDarkBar,
+                            modifier = Modifier.fillMaxWidth().clickable { showSourcePicker = true }
+                        ) {
+                            Text(
+                                uiState.sourceLang.name, color = Color.White, fontSize = 15.sp,
+                                modifier = Modifier.padding(vertical = 13.dp).wrapContentWidth(Alignment.CenterHorizontally)
+                            )
+                        }
+                        if (uiState.detectedLanguage != null && uiState.detectedLanguage != uiState.sourceLang) {
+                            Text(
+                                "Detected: ${uiState.detectedLanguage?.name}",
+                                color = DeepLBlue, fontSize = 11.sp,
+                                modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+                            )
+                        }
                     }
                     IconButton(
                         onClick = { viewModel.onSwapLanguages() },

@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,23 +15,30 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.app_translate.BuildConfig
 import com.example.app_translate.data.model.Language
+import com.example.app_translate.data.model.languages
 import com.example.app_translate.ui.theme.PurpleColor
 import com.example.app_translate.ui.theme.WhiteColor
+import com.google.mlkit.nl.languageid.LanguageIdentification
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 
 val languageToolCodes = setOf("en-US", "en", "pt-PT", "pt-BR", "pt", "id", "es", "fr", "de", "ja", "zh", "ar", "ru", "it", "nl")
 
@@ -45,9 +53,12 @@ fun WriteScreen(
     var inputText by remember { mutableStateOf("") }
     var resultText by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var selectedMode by remember { mutableStateOf("Formal") }
+    var selectedMode by remember { mutableStateOf("Check Grammar") }
     var grammarErrors by remember { mutableStateOf(listOf<GrammarError>()) }
+    var detectedLang by remember { mutableStateOf<Language?>(null) }
+    var manualLang by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val languageIdentifier = remember { LanguageIdentification.getClient() }
 
     val modes = listOf("Check Grammar", "Formal", "Casual", "Expand")
 
@@ -160,40 +171,71 @@ fun WriteScreen(
         }
     }
 
+    LaunchedEffect(inputText) {
+        if (inputText.isBlank()) {
+            detectedLang = null
+            return@LaunchedEffect
+        }
+        delay(600)
+        languageIdentifier.identifyLanguage(inputText)
+            .addOnSuccessListener { code ->
+                if (code != "und") {
+                    val d = languages.find { it.code == code }
+                    if (d != null) {
+                        detectedLang = d
+                        if (!manualLang) {
+                            // Auto-set the language picker to detected language
+                        }
+                    }
+                }
+            }
+    }
+
+    LaunchedEffect(inputText, selectedMode) {
+        if (inputText.isBlank() || selectedMode != "Check Grammar") return@LaunchedEffect
+        delay(800)
+        val (corrected, errors) = checkGrammar(inputText, selectedLang.apiCode, selectedLang.name)
+        grammarErrors = errors
+        resultText = corrected
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFFF8F9FA))
-            .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
         Surface(
             shape = RoundedCornerShape(12.dp),
             color = Color(0xFFEEEEEE),
-            modifier = Modifier.padding(bottom = 12.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Row(
-                modifier = Modifier
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Language: ", fontSize = 13.sp, color = Color.Gray)
-                TextButton(onClick = onLangClick, contentPadding = PaddingValues(0.dp)) {
+                TextButton(onClick = { manualLang = true; onLangClick() }, contentPadding = PaddingValues(0.dp)) {
                     Text(
                         selectedLang.name,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = PurpleColor
                     )
-                    Icon(
-                        Icons.Default.ArrowDropDown,
-                        null,
-                        tint = PurpleColor,
-                        modifier = Modifier.size(18.dp)
+                    Icon(Icons.Default.ArrowDropDown, null, tint = PurpleColor, modifier = Modifier.size(18.dp))
+                }
+                if (detectedLang != null && detectedLang != selectedLang) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Detected: ${detectedLang?.name}",
+                        fontSize = 11.sp,
+                        color = PurpleColor
                     )
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             "Mode",
@@ -202,15 +244,13 @@ fun WriteScreen(
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(androidx.compose.foundation.rememberScrollState()),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             modes.forEach { mode ->
                 FilterChip(
                     selected = selectedMode == mode,
-                    onClick = { selectedMode = mode },
+                    onClick = { selectedMode = mode; grammarErrors = emptyList() },
                     label = { Text(mode, fontSize = 12.sp) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = PurpleColor,
@@ -236,19 +276,53 @@ fun WriteScreen(
                     color = Color.Gray
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { if (it.length <= 1000) inputText = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 140.dp),
-                    placeholder = { Text("Enter the text you want to improve...") },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = PurpleColor,
-                        unfocusedBorderColor = Color.LightGray
+
+                val annotatedText = if (selectedMode == "Check Grammar" && grammarErrors.isNotEmpty()) {
+                    buildAnnotatedString {
+                        append(inputText)
+                        for (err in grammarErrors) {
+                            val start = err.offset.coerceIn(0, inputText.length)
+                            val end = (err.offset + err.length).coerceIn(0, inputText.length)
+                            if (end > start) {
+                                addStyle(
+                                    SpanStyle(color = Color.Red, textDecoration = TextDecoration.Underline),
+                                    start, end
+                                )
+                            }
+                        }
+                    }
+                } else null
+
+                if (annotatedText != null) {
+                    var textFieldValue by remember { mutableStateOf(TextFieldValue(annotatedText)) }
+                    LaunchedEffect(grammarErrors) {
+                        textFieldValue = TextFieldValue(annotatedText, textFieldValue.selection)
+                    }
+                    BasicTextField(
+                        value = textFieldValue,
+                        onValueChange = {
+                            textFieldValue = it
+                            if (it.text.length <= 1000) inputText = it.text
+                        },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+                        textStyle = TextStyle(fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp),
+                        cursorBrush = SolidColor(PurpleColor)
                     )
-                )
+                } else {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { if (it.length <= 1000) inputText = it },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+                        placeholder = { Text("Enter the text you want to improve...") },
+                        shape = RoundedCornerShape(12.dp),
+                        textStyle = TextStyle(fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = PurpleColor,
+                            unfocusedBorderColor = Color.LightGray
+                        )
+                    )
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -268,47 +342,115 @@ fun WriteScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Button(
-            onClick = {
-                if (inputText.isNotBlank()) {
-                    isLoading = true
-                    resultText = ""
-                    grammarErrors = emptyList()
-                    scope.launch {
-                        if (selectedMode == "Check Grammar") {
-                            val (corrected, errors) = checkGrammar(inputText, selectedLang.apiCode, selectedLang.name)
-                            resultText = corrected
-                            grammarErrors = errors
-                        } else {
+        if (selectedMode == "Check Grammar") {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFFFF3E0),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Info, null, tint = Color(0xFFE65100), modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (grammarErrors.isEmpty() && inputText.isNotBlank()) "No grammar issues found"
+                        else if (grammarErrors.isNotEmpty()) "${grammarErrors.size} issue${if (grammarErrors.size > 1) "s" else ""} found"
+                        else "Grammar check runs automatically as you type",
+                        fontSize = 13.sp,
+                        color = Color(0xFF4A4A4A)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        } else {
+            Button(
+                onClick = {
+                    if (inputText.isNotBlank()) {
+                        isLoading = true
+                        resultText = ""
+                        grammarErrors = emptyList()
+                        scope.launch {
                             resultText = processText(inputText, selectedMode, selectedLang.name)
+                            isLoading = false
                         }
-                        isLoading = false
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PurpleColor),
+                enabled = inputText.isNotBlank() && !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(color = WhiteColor, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    if (isLoading) "Processing..." else "✨ Process with AI",
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        if (selectedMode == "Check Grammar" && grammarErrors.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = WhiteColor),
+                elevation = CardDefaults.cardElevation(2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "ERRORS (${grammarErrors.size})",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Red
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    grammarErrors.forEach { err ->
+                        val end = minOf(err.offset + err.length, inputText.length)
+                        val wrongText = if (end > err.offset) inputText.substring(err.offset, end) else ""
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Default.Info, null, tint = Color.Red, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Column {
+                                Text("\"$wrongText\"", fontSize = 14.sp, color = Color.Red, fontWeight = FontWeight.Bold)
+                                Text(err.message, fontSize = 13.sp, color = Color.Gray)
+                                if (err.replacement.isNotEmpty()) {
+                                    Text("\u2192 ${err.replacement}", fontSize = 13.sp, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        HorizontalDivider(color = Color(0xFFEEEEEE))
+                        Spacer(modifier = Modifier.height(6.dp))
+                    }
+                    if (resultText != inputText) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "CORRECTED TEXT",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF2E7D32)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = resultText, fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp)
+                        TextButton(onClick = {
+                            inputText = resultText
+                            resultText = ""
+                            grammarErrors = emptyList()
+                        }) {
+                            Text("Use correction", color = PurpleColor, fontSize = 13.sp)
+                        }
                     }
                 }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PurpleColor),
-            enabled = inputText.isNotBlank() && !isLoading
-        ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    color = WhiteColor,
-                    modifier = Modifier.size(20.dp),
-                    strokeWidth = 2.dp
-                )
-                Spacer(modifier = Modifier.width(8.dp))
             }
-            Text(
-                if (isLoading) "Processing..." else "✨ Process with AI",
-                fontWeight = FontWeight.Bold
-            )
         }
 
         AnimatedVisibility(
-            visible = resultText.isNotEmpty(),
+            visible = resultText.isNotEmpty() && selectedMode != "Check Grammar",
             enter = fadeIn() + slideInVertically()
         ) {
             Column {
@@ -320,137 +462,18 @@ fun WriteScreen(
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        if (selectedMode == "Check Grammar") {
-                            if (grammarErrors.isEmpty()) {
-                                Text(
-                                    "NO ERRORS",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = resultText,
-                                    fontSize = 16.sp,
-                                    color = Color.Black,
-                                    lineHeight = 24.sp
-                                )
-                            } else {
-                                Text(
-                                    "TEXT WITH ERRORS",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Red
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                val annotated = buildAnnotatedString {
-                                    append(inputText)
-                                    for (err in grammarErrors) {
-                                        addStyle(
-                                            SpanStyle(
-                                                color = Color.Red,
-                                                textDecoration = TextDecoration.Underline
-                                            ),
-                                            err.offset,
-                                            err.offset + err.length
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = annotated,
-                                    fontSize = 16.sp,
-                                    color = Color.Black,
-                                    lineHeight = 24.sp
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    "ERRORS (${grammarErrors.size})",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Red
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                grammarErrors.forEach { err ->
-                                    val end = minOf(err.offset + err.length, inputText.length)
-                                    val wrongText = if (end > err.offset) inputText.substring(err.offset, end) else ""
-                                    Row(verticalAlignment = Alignment.Top) {
-                                        Icon(Icons.Default.Info, null, tint = Color.Red, modifier = Modifier.size(16.dp).padding(top = 2.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Column {
-                                            Text(
-                                                "\"$wrongText\"",
-                                                fontSize = 14.sp,
-                                                color = Color.Red,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                            Text(
-                                                err.message,
-                                                fontSize = 13.sp,
-                                                color = Color.Gray
-                                            )
-                                            if (err.replacement.isNotEmpty()) {
-                                                Text(
-                                                    "\u2192 ${err.replacement}",
-                                                    fontSize = 13.sp,
-                                                    color = Color(0xFF2E7D32),
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    HorizontalDivider(color = Color(0xFFEEEEEE))
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                }
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Text(
-                                    "CORRECTED TEXT",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF2E7D32)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = resultText,
-                                    fontSize = 16.sp,
-                                    color = Color.Black,
-                                    lineHeight = 24.sp
-                                )
-                                TextButton(onClick = {
-                                    inputText = resultText
-                                    resultText = ""
-                                    grammarErrors = emptyList()
-                                }) {
-                                    Text("Use correction", color = PurpleColor, fontSize = 13.sp)
-                                }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("RESULT", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                            TextButton(onClick = { inputText = resultText; resultText = "" }) {
+                                Text("Use this text", color = PurpleColor, fontSize = 12.sp)
                             }
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    "RESULT",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Gray
-                                )
-                                TextButton(onClick = {
-                                    inputText = resultText
-                                    resultText = ""
-                                }) {
-                                    Text("Use this text", color = PurpleColor, fontSize = 12.sp)
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = resultText,
-                                fontSize = 16.sp,
-                                color = Color.Black,
-                                lineHeight = 24.sp
-                            )
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = resultText, fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp)
                     }
                 }
             }
