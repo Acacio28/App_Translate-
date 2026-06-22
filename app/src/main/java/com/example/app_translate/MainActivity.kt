@@ -5,7 +5,14 @@ import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModelProvider
+import com.example.app_translate.ui.screen.SplashScreen
 import com.example.app_translate.ui.screen.TranslatorScreen
 import com.example.app_translate.ui.theme.App_TranslateTheme
 import com.example.app_translate.viewmodel.TranslatorViewModel
@@ -25,12 +32,26 @@ class MainActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         enableEdgeToEdge()
 
         setContent {
+            var showSplash by remember { mutableStateOf(true) }
+
             App_TranslateTheme {
-                TranslatorScreen(
-                    tts = tts,
-                    ttsReady = { ttsReady },
-                    viewModel = translatorViewModel
-                )
+                if (showSplash) {
+                    SplashScreen(onFinished = { showSplash = false })
+                } else {
+                    AnimatedContent(
+                        targetState = Unit,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(500)) togetherWith fadeOut(animationSpec = tween(500))
+                        },
+                        label = "splashTransition"
+                    ) {
+                        TranslatorScreen(
+                            tts = tts,
+                            ttsReady = { ttsReady },
+                            viewModel = translatorViewModel
+                        )
+                    }
+                }
             }
         }
     }
