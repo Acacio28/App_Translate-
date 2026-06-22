@@ -32,6 +32,7 @@ data class TranslatorUiState(
     val isLoading: Boolean = false,
     val isError: Boolean = false,
     val detectedLanguage: Language? = null,
+    val isFavorited: Boolean = false,
     val historyList: List<HistoryEntity> = emptyList(),
     val dialogueMessages: List<DialogueMessage> = emptyList(),
     // --- Dictionary State ---
@@ -90,10 +91,37 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
             state.copy(
                 sourceLang = state.targetLang,
                 targetLang = state.sourceLang,
-                detectedLanguage = null
+                detectedLanguage = null,
+                isFavorited = false
             )
         }
         triggerTranslate()
+    }
+
+    fun toggleFavorite() {
+        val state = _uiState.value
+        if (state.outputText.isBlank()) return
+        viewModelScope.launch {
+            val existing = historyDao.findHistory(
+                state.inputText, state.outputText,
+                state.sourceLang.name, state.targetLang.name
+            )
+            if (existing != null) {
+                historyDao.setFavorite(existing.id, !state.isFavorited)
+                _uiState.update { it.copy(isFavorited = !it.isFavorited) }
+            } else {
+                historyDao.insertHistory(
+                    HistoryEntity(
+                        sourceText = state.inputText,
+                        targetText = state.outputText,
+                        sourceLang = state.sourceLang.name,
+                        targetLang = state.targetLang.name,
+                        isFavorite = true
+                    )
+                )
+                _uiState.update { it.copy(isFavorited = true) }
+            }
+        }
     }
 
     private fun triggerTranslate() {
@@ -127,13 +155,20 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
             )
             result.fold(
                 onSuccess = { translated ->
-                    _uiState.update { it.copy(outputText = translated, isLoading = false) }
+                    _uiState.update { it.copy(outputText = translated, isLoading = false, isFavorited = false) }
                     addToHistory(
                         state.inputText,
                         translated,
                         state.sourceLang.name,
                         state.targetLang.name
                     )
+                    val existing = historyDao.findHistory(
+                        state.inputText, translated,
+                        state.sourceLang.name, state.targetLang.name
+                    )
+                    if (existing?.isFavorite == true) {
+                        _uiState.update { it.copy(isFavorited = true) }
+                    }
                 },
                 onFailure = {
                     _uiState.update {

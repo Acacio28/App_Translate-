@@ -521,9 +521,14 @@ fun TranslatorScreen(
                                     )
                                 }
                                 Spacer(modifier = Modifier.weight(1f))
-                                IconButton(onClick = { }) {
-                                    Icon(Icons.Default.BookmarkBorder, null, tint = DeepLTextBlack, modifier = Modifier.size(22.dp))
-                                }
+                    IconButton(onClick = { viewModel.toggleFavorite() }) {
+                        Icon(
+                            if (uiState.isFavorited) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            null,
+                            tint = if (uiState.isFavorited) DeepLBlue else DeepLTextBlack,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                                 IconButton(onClick = { shareText(uiState.outputText) }) {
                                     Icon(Icons.Default.Share, null, tint = DeepLTextBlack, modifier = Modifier.size(22.dp))
                                 }
