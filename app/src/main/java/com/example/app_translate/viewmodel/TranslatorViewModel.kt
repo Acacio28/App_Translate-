@@ -15,6 +15,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
 
 data class DialogueMessage(
     val originalText: String,
@@ -35,7 +40,7 @@ data class TranslatorUiState(
     val isFavorited: Boolean = false,
     val historyList: List<HistoryEntity> = emptyList(),
     val dialogueMessages: List<DialogueMessage> = emptyList(),
-    // --- Dictionary State ---
+    val manualSource: Boolean = false,
     val dictionaryResult: DictionaryEntry? = null,
     val isDictionaryLoading: Boolean = false,
     val isDictionaryError: Boolean = false
@@ -64,12 +69,12 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
 
     // --- Translate Functions ---
     fun onInputChanged(text: String) {
-        _uiState.update { it.copy(inputText = text) }
+        _uiState.update { it.copy(inputText = text, manualSource = false) }
         triggerTranslate()
     }
 
     fun onSourceLangChanged(lang: Language) {
-        _uiState.update { it.copy(sourceLang = lang, detectedLanguage = null) }
+        _uiState.update { it.copy(sourceLang = lang, detectedLanguage = null, manualSource = true) }
         triggerTranslate()
     }
 
@@ -81,7 +86,7 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
     fun applyDetectedLanguage() {
         val detected = _uiState.value.detectedLanguage
         if (detected != null) {
-            _uiState.update { it.copy(sourceLang = detected, detectedLanguage = null) }
+            _uiState.update { it.copy(sourceLang = detected, detectedLanguage = null, manualSource = true) }
             triggerTranslate()
         }
     }
@@ -92,7 +97,8 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
                 sourceLang = state.targetLang,
                 targetLang = state.sourceLang,
                 detectedLanguage = null,
-                isFavorited = false
+                isFavorited = false,
+                manualSource = true
             )
         }
         triggerTranslate()
@@ -145,13 +151,47 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
             _uiState.update { it.copy(isLoading = true, isError = false) }
             languageIdentifier.identifyLanguage(state.inputText)
                 .addOnSuccessListener { code ->
-                    val detected = languages.find { it.code == code }
-                    if (detected != null && code != _uiState.value.sourceLang.code) {
-                        _uiState.update { it.copy(sourceLang = detected, detectedLanguage = null) }
+                    if (code != "und") {
+                        val detected = languages.find { it.code == code }
+                        if (detected != null) {
+                            val current = _uiState.value
+                            if (!current.manualSource && code != current.sourceLang.code) {
+                                _uiState.update { it.copy(sourceLang = detected, detectedLanguage = null) }
+                            } else {
+                                _uiState.update { it.copy(detectedLanguage = detected) }
+                            }
+                        }
                     }
                     performTranslation(_uiState.value)
                 }
-                .addOnFailureListener { performTranslation(_uiState.value) }
+                .addOnFailureListener {
+                    fallbackDetectAndTranslate(state.inputText)
+                }
+        }
+    }
+
+    private fun fallbackDetectAndTranslate(text: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://api.mymemory.translated.net/langdetect?q=" + URLEncoder.encode(text, "UTF-8"))
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "GET"
+                val response = conn.inputStream.bufferedReader().readText()
+                val json = JSONObject(response)
+                val detectedCode = json.getJSONObject("responseData").optString("detectedLanguage", "")
+                if (detectedCode.isNotBlank()) {
+                    val detected = languages.find { it.code == detectedCode || it.apiCode == detectedCode }
+                    if (detected != null) {
+                        val current = _uiState.value
+                        if (!current.manualSource && detectedCode != current.sourceLang.code && detectedCode != current.sourceLang.apiCode) {
+                            _uiState.update { it.copy(sourceLang = detected, detectedLanguage = null) }
+                        } else {
+                            _uiState.update { it.copy(detectedLanguage = detected) }
+                        }
+                    }
+                }
+            } catch (_: Exception) { }
+            performTranslation(_uiState.value)
         }
     }
 
