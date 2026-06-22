@@ -32,6 +32,8 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
+val languageToolCodes = setOf("en-US", "en", "pt-PT", "pt-BR", "pt", "id", "es", "fr", "de", "ja", "zh", "ar", "ru", "it", "nl")
+
 data class GrammarError(val offset: Int, val length: Int, val message: String, val replacement: String)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,41 +50,6 @@ fun WriteScreen(
     val scope = rememberCoroutineScope()
 
     val modes = listOf("Check Grammar", "Formal", "Casual", "Expand")
-
-    suspend fun checkGrammar(text: String): Pair<String, List<GrammarError>> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val url = URL("https://api.languagetool.org/v2/check")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
-                conn.doOutput = true
-                val body = "text=" + java.net.URLEncoder.encode(text, "UTF-8") + "&language=en-US"
-                conn.outputStream.write(body.toByteArray())
-                val response = conn.inputStream.bufferedReader().readText()
-                val json = JSONObject(response)
-                val matches = json.getJSONArray("matches")
-                val errors = mutableListOf<GrammarError>()
-                val sb = StringBuilder(text)
-                for (i in matches.length() - 1 downTo 0) {
-                    val m = matches.getJSONObject(i)
-                    val offset = m.getInt("offset")
-                    val length = m.getInt("length")
-                    val message = m.getString("message")
-                    val repl = m.getJSONArray("replacements")
-                    val replacement = if (repl.length() > 0) repl.getJSONObject(0).getString("value") else ""
-                    errors.add(GrammarError(offset, length, message, replacement))
-                    if (replacement.isNotEmpty()) {
-                        sb.replace(offset, offset + length, replacement)
-                    }
-                }
-                errors.reverse()
-                Pair(sb.toString(), errors)
-            } catch (e: Exception) {
-                Pair("Error: ${e.message}", emptyList())
-            }
-        }
-    }
 
     suspend fun processWithGemini(text: String, prompt: String): String {
         return withContext(Dispatchers.IO) {
@@ -118,14 +85,70 @@ fun WriteScreen(
         }
     }
 
-    suspend fun processText(text: String, mode: String): String {
+    suspend fun grammarViaGemini(text: String, lang: String): Pair<String, List<GrammarError>> {
+        val langPrompt = "Check the grammar of this $lang text. Return valid JSON only with 'corrected' (corrected text) and 'errors' (array of {offset, length, message, replacement}). Text:\n\n$text"
+        val response = processWithGemini(text, langPrompt)
+        return try {
+            val json = JSONObject(response)
+            val corrected = json.getString("corrected")
+            val arr = json.getJSONArray("errors")
+            val errors = mutableListOf<GrammarError>()
+            for (i in 0 until arr.length()) {
+                val e = arr.getJSONObject(i)
+                errors.add(GrammarError(e.getInt("offset"), e.getInt("length"), e.getString("message"), e.optString("replacement", "")))
+            }
+            Pair(corrected, errors)
+        } catch (e: Exception) {
+            Pair(response, emptyList())
+        }
+    }
+
+    suspend fun checkGrammar(text: String, langCode: String, langName: String): Pair<String, List<GrammarError>> {
+        return withContext(Dispatchers.IO) {
+            if (langCode !in languageToolCodes) {
+                return@withContext grammarViaGemini(text, langName)
+            }
+            try {
+                val url = URL("https://api.languagetool.org/v2/check")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+                conn.doOutput = true
+                val body = "text=" + java.net.URLEncoder.encode(text, "UTF-8") + "&language=$langCode"
+                conn.outputStream.write(body.toByteArray())
+                val response = conn.inputStream.bufferedReader().readText()
+                val json = JSONObject(response)
+                val matches = json.getJSONArray("matches")
+                val errors = mutableListOf<GrammarError>()
+                val sb = StringBuilder(text)
+                for (i in matches.length() - 1 downTo 0) {
+                    val m = matches.getJSONObject(i)
+                    val offset = m.getInt("offset")
+                    val length = m.getInt("length")
+                    val message = m.getString("message")
+                    val repl = m.getJSONArray("replacements")
+                    val replacement = if (repl.length() > 0) repl.getJSONObject(0).getString("value") else ""
+                    errors.add(GrammarError(offset, length, message, replacement))
+                    if (replacement.isNotEmpty()) {
+                        sb.replace(offset, offset + length, replacement)
+                    }
+                }
+                errors.reverse()
+                Pair(sb.toString(), errors)
+            } catch (e: Exception) {
+                Pair("Error: ${e.message}", emptyList())
+            }
+        }
+    }
+
+    suspend fun processText(text: String, mode: String, langName: String): String {
         return when (mode) {
             "Check Grammar" -> text
             else -> {
                 val prompt = when (mode) {
-                    "Formal"  -> "Rewrite the following text in a professional formal style. Only show the result:\n\n$text"
-                    "Casual"  -> "Rewrite the following text in a casual and natural style. Only show the result:\n\n$text"
-                    "Expand"  -> "Expand the following text with more complete details. Only show the result:\n\n$text"
+                    "Formal"  -> "Rewrite the following $langName text in a professional formal style. Only show the result:\n\n$text"
+                    "Casual"  -> "Rewrite the following $langName text in a casual and natural style. Only show the result:\n\n$text"
+                    "Expand"  -> "Expand the following $langName text with more complete details. Only show the result:\n\n$text"
                     else      -> text
                 }
                 processWithGemini(text, prompt)
@@ -249,11 +272,11 @@ fun WriteScreen(
                     grammarErrors = emptyList()
                     scope.launch {
                         if (selectedMode == "Check Grammar") {
-                            val (corrected, errors) = checkGrammar(inputText)
+                            val (corrected, errors) = checkGrammar(inputText, selectedLang.apiCode, selectedLang.name)
                             resultText = corrected
                             grammarErrors = errors
                         } else {
-                            resultText = processText(inputText, selectedMode)
+                            resultText = processText(inputText, selectedMode, selectedLang.name)
                         }
                         isLoading = false
                     }
