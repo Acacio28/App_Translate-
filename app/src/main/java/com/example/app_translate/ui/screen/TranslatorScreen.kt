@@ -249,6 +249,13 @@ fun TranslatorScreen(
             )
         }
 
+        "favorites" -> {
+            FavoritesScreen(
+                viewModel = viewModel,
+                onBack = { currentTab = "translate" }
+            )
+        }
+
         "write" -> {
             Column(
                 modifier = Modifier
@@ -350,7 +357,9 @@ fun TranslatorScreen(
                     IconButton(onClick = { currentTab = "dictionary" }) {
                         Icon(Icons.Default.MenuBook, null, tint = Color(0xFF888888), modifier = Modifier.size(24.dp))
                     }
-                    Icon(Icons.Default.Bookmark, null, tint = DeepLBlue, modifier = Modifier.size(26.dp))
+                    IconButton(onClick = { currentTab = "favorites" }) {
+                        Icon(Icons.Default.Bookmark, null, tint = DeepLBlue, modifier = Modifier.size(26.dp))
+                    }
                 }
 
                 // KONTEN

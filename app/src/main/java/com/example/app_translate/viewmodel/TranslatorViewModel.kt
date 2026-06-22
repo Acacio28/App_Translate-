@@ -124,6 +124,15 @@ class TranslatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun toggleFavoriteFromHistory(id: Int) {
+        viewModelScope.launch {
+            val entry = historyDao.findHistoryById(id)
+            if (entry != null) {
+                historyDao.setFavorite(id, !entry.isFavorite)
+            }
+        }
+    }
+
     private fun triggerTranslate() {
         val state = _uiState.value
         if (state.inputText.isBlank()) {
