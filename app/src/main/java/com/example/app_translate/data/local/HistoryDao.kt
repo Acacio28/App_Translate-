@@ -17,6 +17,9 @@ interface HistoryDao {
     @Query("SELECT * FROM history_table WHERE sourceText = :source AND targetText = :target AND sourceLang = :sLang AND targetLang = :tLang LIMIT 1")
     suspend fun findHistory(source: String, target: String, sLang: String, tLang: String): HistoryEntity?
 
+    @Query("SELECT * FROM history_table WHERE id = :id LIMIT 1")
+    suspend fun findHistoryById(id: Int): HistoryEntity?
+
     @Query("UPDATE history_table SET isFavorite = :isFavorite WHERE id = :id")
     suspend fun setFavorite(id: Int, isFavorite: Boolean)
 
