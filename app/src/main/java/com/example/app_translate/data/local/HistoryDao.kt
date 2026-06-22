@@ -11,6 +11,15 @@ interface HistoryDao {
     @Query("SELECT * FROM history_table ORDER BY timestamp DESC")
     fun getAllHistory(): Flow<List<HistoryEntity>>
 
+    @Query("SELECT * FROM history_table WHERE isFavorite = 1 ORDER BY timestamp DESC")
+    fun getFavorites(): Flow<List<HistoryEntity>>
+
+    @Query("SELECT * FROM history_table WHERE sourceText = :source AND targetText = :target AND sourceLang = :sLang AND targetLang = :tLang LIMIT 1")
+    suspend fun findHistory(source: String, target: String, sLang: String, tLang: String): HistoryEntity?
+
+    @Query("UPDATE history_table SET isFavorite = :isFavorite WHERE id = :id")
+    suspend fun setFavorite(id: Int, isFavorite: Boolean)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(history: HistoryEntity)
 

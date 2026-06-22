@@ -11,5 +11,6 @@ data class HistoryEntity(
     val targetText: String,
     val sourceLang: String,
     val targetLang: String,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isFavorite: Boolean = false
 )
