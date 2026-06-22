@@ -194,7 +194,8 @@ fun WriteScreen(
     LaunchedEffect(inputText, selectedMode) {
         if (inputText.isBlank() || selectedMode != "Check Grammar") return@LaunchedEffect
         delay(800)
-        val (corrected, errors) = checkGrammar(inputText, selectedLang.apiCode, selectedLang.name)
+        val lang = detectedLang ?: selectedLang
+        val (corrected, errors) = checkGrammar(inputText, lang.apiCode, lang.name)
         grammarErrors = errors
         resultText = corrected
     }
