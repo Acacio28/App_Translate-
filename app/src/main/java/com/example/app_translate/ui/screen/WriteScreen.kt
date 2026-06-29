@@ -203,6 +203,7 @@ fun WriteScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .background(Color(0xFFF8F9FA))
             .padding(16.dp)
     ) {
@@ -305,7 +306,7 @@ fun WriteScreen(
                             textFieldValue = it
                             if (it.text.length <= 1000) inputText = it.text
                         },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp, max = 300.dp),
                         textStyle = TextStyle(fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp),
                         cursorBrush = SolidColor(PurpleColor)
                     )
@@ -313,7 +314,7 @@ fun WriteScreen(
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { if (it.length <= 1000) inputText = it },
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp, max = 300.dp),
                         placeholder = { Text("Enter the text you want to improve...") },
                         shape = RoundedCornerShape(12.dp),
                         textStyle = TextStyle(fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp),
@@ -437,7 +438,11 @@ fun WriteScreen(
                             color = Color(0xFF2E7D32)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = resultText, fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp)
+                        Column(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp).verticalScroll(rememberScrollState())
+                        ) {
+                            Text(text = resultText, fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp)
+                        }
                         TextButton(onClick = {
                             inputText = resultText
                             resultText = ""
@@ -474,7 +479,11 @@ fun WriteScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = resultText, fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp)
+                        Column(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp).verticalScroll(rememberScrollState())
+                        ) {
+                            Text(text = resultText, fontSize = 16.sp, color = Color.Black, lineHeight = 24.sp)
+                        }
                     }
                 }
             }
